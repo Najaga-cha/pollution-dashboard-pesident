@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบติดตามแหล่งกำเนิดมลพิษ | การระบายน้ำทิ้งจากแหล่งกำเนิดมลพิษ</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" />
+
+<style>
+:root{
+  --navy:#122A52;
+  --navy-2:#0E2140;
+  --bg:#EEF1F6;
+  --card:#FFFFFF;
+  --line:#E4E8F0;
+  --ink:#152238;
+  --ink-soft:#5B6579;
+  --ink-faint:#94A0B4;
+  --blue:#2B63E0;
+  --blue-soft:#E7EDFC;
+  --green:#1AA36A;
+  --green-soft:#E2F6EC;
+  --purple:#7C5CE0;
+  --purple-soft:#EFE9FC;
+  --amber:#E6A417;
+  --amber-soft:#FCF0D8;
+  --red:#E0452F;
+  --red-soft:#FBE4E0;
+  --gray-soft:#EEF0F4;
+  --shadow:0 1px 2px rgba(15,30,60,.04), 0 10px 24px -14px rgba(15,30,60,.16);
+  --radius:16px;
+  --font-display:'Chakra Petch','IBM Plex Sans Thai',sans-serif;
+  --font-body:'IBM Plex Sans Thai','Noto Sans Thai',sans-serif;
+  --font-mono:'IBM Plex Mono', ui-monospace, monospace;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0; background:var(--bg); color:var(--ink); font-family:var(--font-body);
+  font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;
+}
+a{color:inherit; text-decoration:none;}
+button{font-family:inherit;}
+::selection{background:var(--blue); color:#fff;}
+
+/* ================= Topbar ================= */
+header.topbar{
+  background:linear-gradient(90deg,var(--navy),var(--navy-2));
+  color:#fff; position:sticky; top:0; z-index:80;
+  box-shadow:0 4px 18px -8px rgba(8,18,38,.5);
+}
+.topbar-inner{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 26px; gap:16px; flex-wrap:wrap;
+}
+.brand-block{display:flex; align-items:center; gap:12px;}
+.brand-mark{
+  width:44px; height:44px; border-radius:12px; flex-shrink:0;
+  background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center;
+}
+.brand-mark svg{width:24px; height:24px; color:#fff;}
+.brand-text h1{font-family:var(--font-display); font-size:19px; font-weight:600; margin:0; letter-spacing:.01em;}
+.brand-text p{font-size:12px; color:rgba(255,255,255,.65); margin:2px 0 0;}
+.status-cluster{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+.sync-chip{
+  display:flex; align-items:center; gap:7px; font-size:12.5px; color:rgba(255,255,255,.85);
+  background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14);
+  padding:8px 13px; border-radius:100px; cursor:pointer;
+}
+.sync-chip svg{width:14px; height:14px; flex-shrink:0;}
+.sync-chip .live-dot{width:6px; height:6px; border-radius:50%; background:var(--ink-faint); flex-shrink:0;}
+.sync-chip .live-dot.on{background:#41D98C; box-shadow:0 0 0 3px rgba(65,217,140,.28);}
+.btn-download{
+  display:inline-flex; align-items:center; gap:8px; background:#fff; color:var(--navy);
+  border:none; border-radius:10px; padding:10px 16px; font-size:13px; font-weight:600;
+  cursor:pointer; transition:transform .15s ease, box-shadow .15s ease;
+}
+.btn-download:hover{transform:translateY(-1px); box-shadow:0 6px 14px -6px rgba(0,0,0,.35);}
+.btn-download svg{width:15px; height:15px;}
+.avatar-btn{
+  width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.18); display:flex; align-items:center; justify-content:center;
+  color:#fff; cursor:pointer;
+}
+.avatar-btn svg{width:18px; height:18px;}
+
+/* ================= App shell ================= */
+.app-shell{display:flex; align-items:flex-start;}
+
+/* ---- Sidebar ---- */
+.sidebar{
+  width:216px; flex-shrink:0; background:var(--card); min-height:calc(100vh - 73px);
+  border-right:1px solid var(--line); position:sticky; top:73px;
+  display:flex; flex-direction:column; padding:18px 12px;
+}
+.side-nav{display:flex; flex-direction:column; gap:3px;}
+.side-nav button{
+  display:flex; align-items:center; gap:11px; width:100%; text-align:left;
+  background:none; border:none; border-radius:10px; padding:11px 13px;
+  font-size:13.5px; font-weight:500; color:var(--ink-soft); cursor:pointer;
+  transition:all .15s ease;
+}
+.side-nav button svg{width:18px; height:18px; flex-shrink:0;}
+.side-nav button:hover{background:var(--gray-soft); color:var(--ink);}
+.side-nav button.active{background:var(--blue); color:#fff; box-shadow:0 6px 14px -6px rgba(43,99,224,.55);}
+.sidebar-illustration{
+  margin-top:auto; padding-top:26px; display:flex; flex-direction:column; align-items:center;
+  color:var(--ink-faint);
+}
+.sidebar-illustration svg{width:118px; height:auto;}
+
+/* ---- Main ---- */
+main.content{flex:1; min-width:0; padding:20px 24px 60px;}
+
+/* ================= KPI cards ================= */
+.kpi-row{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:18px;}
+.kpi-card{
+  background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+  box-shadow:var(--shadow); padding:18px 20px;
+}
+.kpi-top{display:flex; align-items:center; gap:12px; margin-bottom:14px;}
+.kpi-icon{
+  width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+  flex-shrink:0;
+}
+.kpi-icon svg{width:22px; height:22px;}
+.kpi-label{font-size:13px; color:var(--ink-soft); line-height:1.35; font-weight:500;}
+.kpi-value-row{display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; margin-bottom:10px;}
+.kpi-value{font-family:var(--font-display); font-size:30px; font-weight:700; color:var(--ink);}
+.kpi-unit{font-size:12.5px; color:var(--ink-faint);}
+.kpi-pct{font-size:13px; font-weight:600;}
+.kpi-link{
+  display:inline-flex; align-items:center; gap:4px; font-size:12.5px; font-weight:600;
+  color:var(--blue); background:none; border:none; cursor:pointer; padding:0;
+}
+.kpi-link svg{width:13px; height:13px;}
+
+/* ================= Filter card ================= */
+.filter-card{
+  background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+  box-shadow:var(--shadow); padding:16px 20px 18px; margin-bottom:18px;
+}
+.filter-row{display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr 1fr 1fr 1fr; gap:14px; margin-bottom:14px;}
+.filter-row2{display:grid; grid-template-columns:1fr 1fr auto auto; gap:14px; align-items:end;}
+.field-group{display:flex; flex-direction:column; gap:6px; min-width:0;}
+.field-label{font-size:11.5px; color:var(--ink-soft); font-weight:500;}
+.field-input, select.field-input{
+  font-family:var(--font-body); font-size:13px; color:var(--ink);
+  background:var(--bg); border:1px solid var(--line); border-radius:9px;
+  padding:9px 30px 9px 12px; width:100%; cursor:pointer; appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394A0B4' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 11px center;
+  transition:border-color .15s ease;
+}
+input.field-input{background-image:none; cursor:text; padding:9px 12px;}
+.field-input:focus{outline:none; border-color:var(--blue); box-shadow:0 0 0 3px var(--blue-soft);}
+.search-field{position:relative;}
+.search-field svg{position:absolute; left:11px; top:50%; transform:translateY(-50%); width:15px; height:15px; color:var(--ink-faint);}
+.search-field input{padding-left:34px;}
+.size-chip-group{display:flex; gap:6px;}
+.size-chip{
+  flex:1; border:1px solid var(--line); background:var(--bg); border-radius:9px;
+  padding:9px 0; text-align:center; font-size:12.5px; font-weight:700; cursor:pointer; color:var(--ink-soft);
+  transition:all .15s ease;
+}
+.size-chip[data-v="ก"].active{background:var(--blue-soft); border-color:var(--blue); color:var(--blue);}
+.size-chip[data-v="ข"].active{background:var(--amber-soft); border-color:var(--amber); color:#8a6608;}
+.size-chip[data-v="ค"].active{background:var(--green-soft); border-color:var(--green); color:var(--green);}
+.size-chip[data-v="ง"].active{background:var(--purple-soft); border-color:var(--purple); color:var(--purple);}
+.filter-actions{display:flex; align-items:center; gap:10px; justify-content:flex-end;}
+.btn-clear{
+  display:inline-flex; align-items:center; gap:7px; background:var(--card); color:var(--ink-soft);
+  border:1px solid var(--line); border-radius:9px; padding:10px 16px; font-size:13px; font-weight:500; cursor:pointer;
+}
+.btn-clear:hover{border-color:var(--ink-faint);}
+.btn-clear svg{width:14px; height:14px;}
+.btn-search{
+  display:inline-flex; align-items:center; gap:7px; background:var(--blue); color:#fff;
+  border:none; border-radius:9px; padding:10px 18px; font-size:13px; font-weight:600; cursor:pointer;
+}
+.btn-search:hover{background:#2153c4;}
+.btn-search svg{width:14px; height:14px;}
+
+/* ================= Insight row: map + donuts + top5 ================= */
+.insight-row{display:grid; grid-template-columns:1.5fr .82fr .82fr .82fr 1fr; gap:16px; margin-bottom:18px; align-items:stretch;}
+.panel{
+  background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+  box-shadow:var(--shadow); padding:16px 16px 14px; display:flex; flex-direction:column;
+}
+.panel-title{font-family:var(--font-display); font-size:13.5px; font-weight:600; color:var(--ink); margin:0 0 12px;}
+.map-panel #mapview{height:380px; border-radius:11px; overflow:hidden; border:1px solid var(--line);}
+.map-legend{
+  margin-top:10px; background:var(--card); border:1px solid var(--line); border-radius:9px;
+  padding:9px 11px; font-size:11.5px; color:var(--ink-soft); position:relative;
+}
+.map-legend .lg-title{font-weight:600; color:var(--ink); margin-bottom:6px; font-size:11.5px;}
+.map-legend .lg-item{display:flex; align-items:center; gap:7px; padding:2px 0;}
+.map-legend .lg-dot{width:9px; height:9px; border-radius:3px; flex-shrink:0;}
+
+.donut-card{align-items:center;}
+.donut-card canvas{width:100% !important; max-width:150px; max-height:150px;}
+.donut-center{position:relative; width:100%; display:flex; justify-content:center;}
+.donut-mid{
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none;
+}
+.donut-mid .n{font-family:var(--font-mono); font-size:18px; font-weight:700; color:var(--ink);}
+.donut-mid .l{font-size:9.5px; color:var(--ink-faint); margin-top:1px;}
+.donut-total{font-size:11px; color:var(--ink-faint); text-align:center; margin-top:8px;}
+.donut-total b{color:var(--ink); font-weight:700;}
+.donut-legend{width:100%; margin-top:10px; display:flex; flex-direction:column; gap:6px;}
+.donut-legend .row{display:flex; align-items:center; justify-content:space-between; font-size:11.3px; gap:6px;}
+.donut-legend .row .lab{display:flex; align-items:center; gap:6px; color:var(--ink-soft); min-width:0;}
+.donut-legend .row .dot{width:8px; height:8px; border-radius:2px; flex-shrink:0;}
+.donut-legend .row .val{font-weight:600; color:var(--ink); white-space:nowrap;}
+
+.top5-panel .top5-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;}
+.top5-panel .top5-sub{font-size:10.5px; color:var(--ink-faint);}
+.top5-list{display:flex; flex-direction:column; gap:11px; margin-top:8px;}
+.top5-item{display:flex; flex-direction:column; gap:5px;}
+.top5-item .row1{display:flex; justify-content:space-between; gap:8px; font-size:11.3px;}
+.top5-item .rank{color:var(--blue); font-weight:700; margin-right:5px;}
+.top5-item .name{color:var(--ink-soft); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.top5-item .val{font-weight:700; color:var(--ink); font-family:var(--font-mono); flex-shrink:0;}
+.top5-item .bar-track{height:6px; border-radius:4px; background:var(--gray-soft); overflow:hidden;}
+.top5-item .bar-fill{height:100%; border-radius:4px; background:var(--blue);}
+.btn-viewall{
+  margin-top:auto; padding-top:12px; width:100%; text-align:center; border:1px solid var(--line);
+  background:var(--bg); color:var(--ink-soft); border-radius:9px; padding:10px; font-size:12.5px; font-weight:600; cursor:pointer;
+}
+.btn-viewall:hover{border-color:var(--blue); color:var(--blue);}
+
+/* ================= Table ================= */
+.table-panel{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px 20px 12px;}
+.table-head-row{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:4px;}
+.table-head-titles h2{font-family:var(--font-display); font-size:15px; font-weight:600; margin:0;}
+.table-head-titles p{font-size:11.5px; color:var(--ink-faint); margin:3px 0 0;}
+.table-head-actions{display:flex; align-items:center; gap:10px;}
+.btn-export{
+  display:inline-flex; align-items:center; gap:7px; background:var(--bg); color:var(--ink-soft);
+  border:1px solid var(--line); border-radius:9px; padding:9px 14px; font-size:12.5px; font-weight:600; cursor:pointer;
+}
+.btn-export svg{width:14px; height:14px;}
+.pager{display:flex; align-items:center; gap:5px;}
+.pager button{
+  min-width:30px; height:30px; border-radius:8px; border:1px solid var(--line); background:var(--card);
+  color:var(--ink-soft); font-size:12.5px; cursor:pointer; padding:0 8px;
+}
+.pager button.active{background:var(--blue); border-color:var(--blue); color:#fff; font-weight:700;}
+.pager button:disabled{opacity:.4; cursor:not-allowed;}
+.pager .dots{color:var(--ink-faint); font-size:12.5px; padding:0 2px;}
+
+.table-scroll{overflow-x:auto; margin-top:14px;}
+table.datatable{width:100%; border-collapse:collapse; font-size:12.8px; min-width:1180px;}
+table.datatable thead th{
+  text-align:left; font-weight:600; color:var(--ink-soft); font-size:11.5px;
+  background:var(--bg); padding:10px 12px; white-space:nowrap; border-bottom:1px solid var(--line);
+  position:sticky; top:0;
+}
+table.datatable tbody td{padding:11px 12px; border-bottom:1px solid var(--line); color:var(--ink); vertical-align:middle;}
+table.datatable tbody tr:hover{background:#F7F9FC;}
+.cell-name .primary{font-weight:600; color:var(--ink);}
+.cell-name .secondary{font-size:11px; color:var(--ink-faint); margin-top:2px;}
+.badge-size{display:inline-flex; align-items:center; justify-content:center; min-width:26px; padding:3px 8px; border-radius:6px; font-weight:700; font-size:11.5px;}
+.badge-size.sz-k{background:var(--blue-soft); color:var(--blue);}
+.badge-size.sz-kh{background:var(--amber-soft); color:#8a6608;}
+.badge-size.sz-kk{background:var(--green-soft); color:var(--green);}
+.badge-size.sz-ng{background:var(--purple-soft); color:var(--purple);}
+.badge-size.sz-o{background:var(--gray-soft); color:var(--ink-soft);}
+.dot-status{display:inline-flex; align-items:center; gap:6px; font-size:12.5px; white-space:nowrap;}
+.dot-status .d{width:7px; height:7px; border-radius:50%; flex-shrink:0;}
+.eye-btn{
+  width:30px; height:30px; border-radius:8px; border:1px solid var(--line); background:var(--card);
+  color:var(--ink-soft); display:inline-flex; align-items:center; justify-content:center; cursor:pointer;
+}
+.eye-btn:hover{border-color:var(--blue); color:var(--blue);}
+.eye-btn svg{width:15px; height:15px;}
+.pager-bottom{display:flex; justify-content:flex-end; padding:14px 0 4px;}
+
+.foot-note{font-size:11px; color:var(--ink-faint); text-align:center; padding:18px 0 6px;}
+
+/* ---- Gsheet connect modal (kept functional, opened from Settings) ---- */
+.modal-backdrop[hidden]{display:none;}
+.modal-backdrop{position:fixed; inset:0; background:rgba(10,20,40,.45); z-index:200; display:flex; align-items:center; justify-content:center; padding:20px;}
+.gsheet-modal{width:420px; max-width:100%; background:var(--card); border-radius:14px; box-shadow:var(--shadow); padding:20px;}
+.gsheet-modal h3{margin:0 0 4px; font-family:var(--font-display); font-size:15px;}
+.gsheet-modal .close-x{float:right; cursor:pointer; color:var(--ink-faint); background:none; border:none;}
+.gsheet-modal label{font-size:11.5px; color:var(--ink-soft); display:block; margin:12px 0 6px;}
+.gsheet-modal input[type=text]{
+  width:100%; font-family:var(--font-body); font-size:13px; color:var(--ink);
+  background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:9px 10px;
+}
+.gsheet-hint{font-size:11px; color:var(--ink-faint); margin-top:10px; line-height:1.6;}
+.gsheet-actions{display:flex; gap:8px; margin-top:12px;}
+.gsheet-msg{font-size:11.5px; margin-top:10px; line-height:1.5;}
+.gsheet-msg.ok{color:var(--green);}
+.gsheet-msg.err{color:var(--red);}
+.gsheet-refresh-row{
+  display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:12px;
+  background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:11.5px; color:var(--ink-soft);
+}
+.gsheet-refresh-row button{font-size:11.5px; color:var(--blue); background:none; border:none; cursor:pointer; text-decoration:underline;}
+#fileInput{display:none;}
+.upload-label{
+  display:flex; align-items:center; justify-content:center; gap:8px; width:100%; margin-top:10px;
+  border:1px dashed var(--line); border-radius:9px; padding:10px; font-size:12px; color:var(--ink-soft); cursor:pointer;
+}
+
+@media (max-width:1180px){
+  .insight-row{grid-template-columns:1fr 1fr; }
+  .insight-row .top5-panel{grid-column:span 2;}
+}
+@media (max-width:980px){
+  .sidebar{display:none;}
+  .kpi-row{grid-template-columns:1fr;}
+  .filter-row{grid-template-columns:1fr 1fr;}
+  .insight-row{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand-block">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c-3 4-6 7-6 11a6 6 0 0 0 12 0c0-4-3-7-6-11z"/></svg>
+      </div>
+      <div class="brand-text">
+        <h1>ระบบติดตามแหล่งกำเนิดมลพิษ</h1>
+        <p>การระบายน้ำทิ้งจากแหล่งกำเนิดมลพิษ</p>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <button class="sync-chip" id="gsheetOpenBtn" type="button" title="คลิกเพื่อเชื่อมต่อ/รีเฟรช Google Sheet">
+        <span class="live-dot" id="gsheetLiveDot"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        <span id="syncLabel">ข้อมูลล่าสุด : กำลังเชื่อมต่อ...</span>
+      </button>
+      <button class="btn-download" id="exportBtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+        ดาวน์โหลดรายงาน
+      </button>
+      <button class="avatar-btn" id="settingsAvatarBtn" title="ตั้งค่า / เชื่อมต่อ Google Sheet">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 1 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <nav class="side-nav" id="sideNav">
+      <button class="active" data-target="sec-overview">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></svg>
+        ภาพรวม
+      </button>
+      <button data-target="sec-table">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        แหล่งกำเนิดมลพิษ
+      </button>
+      <button data-target="sec-map">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20 3 17V4l6 3 6-3 6 3v13l-6-3-6 3Z"/><path d="M9 7v13M15 4v13"/></svg>
+        แผนที่
+      </button>
+      <button data-target="sec-table">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>
+        โครงการที่เข้าตรวจสอบ
+      </button>
+      <button data-target="sec-table">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8M8 9h2"/></svg>
+        รายงาน
+      </button>
+      <button id="navSettings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        ตั้งค่า
+      </button>
+    </nav>
+    <div class="sidebar-illustration">
+      <svg viewBox="0 0 140 120" fill="none">
+        <rect x="30" y="30" width="80" height="80" rx="4" fill="#DCE4F5"/>
+        <rect x="42" y="42" width="14" height="14" fill="#B9C7EA"/>
+        <rect x="63" y="42" width="14" height="14" fill="#B9C7EA"/>
+        <rect x="84" y="42" width="14" height="14" fill="#B9C7EA"/>
+        <rect x="42" y="63" width="14" height="14" fill="#B9C7EA"/>
+        <rect x="63" y="63" width="14" height="14" fill="#B9C7EA"/>
+        <rect x="84" y="63" width="14" height="14" fill="#B9C7EA"/>
+        <rect x="55" y="86" width="30" height="24" fill="#9FB0DE"/>
+        <path d="M15 110h110" stroke="#C7D0E8" stroke-width="4" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </aside>
+
+  <main class="content">
+
+    <section id="sec-overview">
+      <div class="kpi-row" id="kpiRow"></div>
+
+      <div class="filter-card">
+        <div class="filter-row">
+          <div class="field-group search-field">
+            <span class="field-label">ค้นหาชื่อแหล่งกำเนิดมลพิษ</span>
+            <div style="position:relative;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input class="field-input" id="fSearch" type="text" placeholder="พิมพ์ชื่อแหล่งกำเนิด...">
+            </div>
+          </div>
+          <div class="field-group">
+            <span class="field-label">ประเภทแหล่ง</span>
+            <input class="field-input" id="fType" list="fTypeList" placeholder="เลือกประเภท" autocomplete="off">
+            <datalist id="fTypeList"></datalist>
+          </div>
+          <div class="field-group">
+            <span class="field-label">ขนาดของแหล่ง</span>
+            <div class="size-chip-group" id="fSize">
+              <div class="size-chip" data-v="ก">ก</div>
+              <div class="size-chip" data-v="ข">ข</div>
+              <div class="size-chip" data-v="ค">ค</div>
+              <div class="size-chip" data-v="ง">ง</div>
+            </div>
+          </div>
+          <div class="field-group">
+            <span class="field-label">เขต / อำเภอ</span>
+            <input class="field-input" id="fDistrict" list="fDistrictList" placeholder="เลือกเขต/อำเภอ" autocomplete="off">
+            <datalist id="fDistrictList"></datalist>
+          </div>
+          <div class="field-group">
+            <span class="field-label">เชื่อมท่อ</span>
+            <select class="field-input" id="fSewer">
+              <option value="">เลือกทั้งหมด</option>
+              <option value="yes">เชื่อมท่อ</option>
+              <option value="no">ไม่เชื่อมท่อ</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <span class="field-label">การปฏิบัติตามกฎหมาย</span>
+            <select class="field-input" id="fStatus">
+              <option value="">เลือกทั้งหมด</option>
+              <option value="ok">ปฏิบัติถูกต้อง</option>
+              <option value="partial">ปฏิบัติไม่ครบถ้วน</option>
+              <option value="bad">ไม่ปฏิบัติ</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <span class="field-label">สถานะการบังคับใช้กฎหมาย</span>
+            <select class="field-input" id="fEnforce">
+              <option value="">เลือกทั้งหมด</option>
+            </select>
+          </div>
+        </div>
+        <div class="filter-row2">
+          <div class="field-group">
+            <span class="field-label">ปีงบประมาณที่เริ่มตรวจ</span>
+            <select class="field-input" id="fYear"><option value="">เลือกปีงบประมาณ</option></select>
+          </div>
+          <div class="field-group">
+            <span class="field-label">โครงการที่เข้าตรวจสอบ</span>
+            <input class="field-input" id="fProject" list="fProjectList" placeholder="เลือกโครงการ" autocomplete="off">
+            <datalist id="fProjectList"></datalist>
+          </div>
+          <div class="filter-actions" style="grid-column:span 2;">
+            <button class="btn-clear" id="resetFilters" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 1 3 6.7"/><path d="M3 7v6h6"/></svg>
+              ล้างค่า
+            </button>
+            <button class="btn-search" id="applyFilters" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              ค้นหา
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="insight-row">
+        <div class="panel map-panel" id="sec-map">
+          <div class="panel-title">พิกัดแหล่งกำเนิดมลพิษ</div>
+          <div id="mapview"></div>
+          <div class="map-legend">
+            <div class="lg-title">จำนวนแหล่ง (แห่ง)</div>
+            <div class="lg-item"><span class="lg-dot" style="background:#22C55E"></span>1 - 20</div>
+            <div class="lg-item"><span class="lg-dot" style="background:#84CC16"></span>21 - 50</div>
+            <div class="lg-item"><span class="lg-dot" style="background:#EAB308"></span>51 - 100</div>
+            <div class="lg-item"><span class="lg-dot" style="background:#F97316"></span>101 - 200</div>
+            <div class="lg-item"><span class="lg-dot" style="background:#E0452F"></span>201 ขึ้นไป</div>
+          </div>
+        </div>
+
+        <div class="panel donut-card">
+          <div class="panel-title">เชื่อมท่อ / ไม่เชื่อมท่อ</div>
+          <div class="donut-center"><canvas id="chartSewer"></canvas><div class="donut-mid" id="sewerMid"></div></div>
+          <div class="donut-total">ทั้งหมด <b id="sewerTotal">0</b> แห่ง</div>
+          <div class="donut-legend" id="sewerLegend"></div>
+        </div>
+
+        <div class="panel donut-card">
+          <div class="panel-title">การปฏิบัติตามกฎหมายในการระบายน้ำทิ้ง</div>
+          <div class="donut-center"><canvas id="chartCompliance"></canvas><div class="donut-mid" id="complianceMid"></div></div>
+          <div class="donut-total">ทั้งหมด <b id="complianceTotal">0</b> แห่ง</div>
+          <div class="donut-legend" id="complianceLegend"></div>
+        </div>
+
+        <div class="panel donut-card">
+          <div class="panel-title">สถานะการบังคับใช้กฎหมาย</div>
+          <div class="donut-center"><canvas id="chartEnforce"></canvas><div class="donut-mid" id="enforceMid"></div></div>
+          <div class="donut-total">ทั้งหมด <b id="enforceTotal">0</b> แห่ง</div>
+          <div class="donut-legend" id="enforceLegend"></div>
+        </div>
+
+        <div class="panel top5-panel">
+          <div class="top5-head">
+            <div class="panel-title" style="margin:0;">โครงการที่เข้าตรวจสอบ (Top 5)</div>
+          </div>
+          <div class="top5-sub">จำนวนแหล่ง (แห่ง)</div>
+          <div class="top5-list" id="top5List"></div>
+          <button class="btn-viewall" id="viewAllProjects" type="button">ดูทั้งหมด</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec-table">
+      <div class="table-panel">
+        <div class="table-head-row">
+          <div class="table-head-titles">
+            <h2>ข้อมูลแหล่งกำเนิดมลพิษทั้งหมด</h2>
+            <p>พบทั้งหมด <span id="resultCount">0</span> รายการ</p>
+          </div>
+          <div class="table-head-actions">
+            <button class="btn-export" id="exportCsvBtn" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+              ส่งออกข้อมูล
+            </button>
+            <div class="pager" id="pagerTop"></div>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="datatable">
+            <thead>
+              <tr>
+                <th>ลำดับ</th>
+                <th>ชื่อแหล่งกำเนิดมลพิษ (จำนวนห้อง/พื้นที่)</th>
+                <th>ประเภทแหล่ง</th>
+                <th>ขนาดของแหล่ง</th>
+                <th>เขต / อำเภอ</th>
+                <th>เชื่อมท่อ</th>
+                <th>การปฏิบัติตามกฎหมายในการระบายน้ำทิ้ง</th>
+                <th>สถานะการบังคับใช้กฎหมาย</th>
+                <th>ปีงบประมาณที่เริ่มตรวจ</th>
+                <th>โครงการที่เข้าตรวจสอบ</th>
+                <th>ดูรายละเอียด</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+        <div class="pager-bottom"><div class="pager" id="pagerBottom"></div></div>
+      </div>
+      <div class="foot-note">หมายเหตุ: ข้อมูลนี้เป็นข้อมูลสำหรับการบริหารจัดการ ไม่สามารถใช้อ้างอิงทางกฎหมายได้</div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ===================== Google Sheet connect modal ===================== -->
+<div class="modal-backdrop" id="gsheetModal" hidden>
+  <div class="gsheet-modal">
+    <button class="close-x" id="gsheetCloseBtn" type="button">✕</button>
+    <h3>เชื่อมต่อ Google Sheet</h3>
+    <label for="gsheetUrlInput">ลิงก์ Google Sheet (แบบเปิดสาธารณะ)</label>
+    <input type="text" id="gsheetUrlInput" placeholder="วางลิงก์ https://docs.google.com/spreadsheets/d/...">
+    <div class="gsheet-hint">
+      1) เปิดไฟล์ใน Google Sheets → กด Share → เปลี่ยนสิทธิ์เป็น "Anyone with the link" (Viewer)<br>
+      2) คัดลอกลิงก์จาก address bar มาวางด้านบน<br>
+      3) ระบบจะดึงข้อมูลจากชีตนี้โดยตรงและรีเฟรชอัตโนมัติ
+    </div>
+    <div class="gsheet-actions">
+      <button class="btn-search" id="gsheetConnectBtn" type="button" style="flex:1; justify-content:center;">เชื่อมต่อ &amp; ดึงข้อมูล</button>
+    </div>
+    <div class="gsheet-refresh-row" id="gsheetRefreshRow" hidden>
+      <span id="gsheetRefreshLabel">รีเฟรชอัตโนมัติ: ปิด</span>
+      <span style="display:flex; gap:10px;">
+        <button type="button" id="gsheetRefreshToggleBtn">เปิด/ปิด</button>
+        <button type="button" id="gsheetRefreshNowBtn">รีเฟรชตอนนี้</button>
+        <button type="button" id="gsheetDisconnectBtn">ยกเลิก</button>
+      </span>
+    </div>
+    <div class="gsheet-msg" id="gsheetMsg"></div>
+    <label class="upload-label" for="fileInput">อัปโหลดไฟล์ .xlsx/.csv จากเครื่องแทน</label>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const EMBEDDED_DATA = {"cols":["n","t","c","a","o","s","d","p","w","y","j","st","e"],"rows":[]};
+</script>
+<script>
+/* =========================================================
+   ระบบติดตามแหล่งกำเนิดมลพิษ — dashboard logic
+   Data pipeline (Google Sheet CSV fetch / parse / mapping) is carried
+   over unchanged in spirit from the previous version of this dashboard.
+   ========================================================= */
+(function(){
+
+const SIZE_LABEL = { 'ก':'sz-k', 'ข':'sz-kh', 'ค':'sz-kk', 'ง':'sz-ng' };
+const ENFORCE_COLORS = {
+  'อยู่ระหว่างแนะนำ':'#2B63E0',
+  'ออกคำสั่งทางปกครอง':'#E6A417',
+  'ดำเนินคดีแล้ว':'#E0452F',
+  'อื่นๆ':'#94A0B4',
+};
+const ENFORCE_ORDER = ['อยู่ระหว่างแนะนำ','ออกคำสั่งทางปกครอง','ดำเนินคดีแล้ว','อื่นๆ'];
+const COMPLY_COLORS = { 'ok':'#1AA36A', 'partial':'#E6A417', 'bad':'#E0452F' };
+const COMPLY_LABEL = { 'ok':'ปฏิบัติถูกต้อง', 'partial':'ปฏิบัติไม่ครบถ้วน', 'bad':'ไม่ปฏิบัติ' };
+
+let ALL = [];
+let FILTERED = [];
+let charts = {};
+let mapInstance = null;
+let markerCluster = null;
+let currentPage = 1;
+const PAGE_SIZE = 25;
+
+/* ---------------- Library resilience ---------------- */
+function ensureLib(name){
+  return new Promise(resolve=>{
+    if (window[name]) return resolve(true);
+    let tries = 0;
+    const t = setInterval(()=>{
+      tries++;
+      if (window[name]){ clearInterval(t); resolve(true); }
+      else if (tries > 40){ clearInterval(t); resolve(false); }
+    }, 100);
+  });
+}
+
+/* ---------------- Data model helpers ---------------- */
+function rowsToObjects(payload){
+  const cols = payload.cols;
+  return payload.rows.map(r=>{
+    const o = {};
+    cols.forEach((c,i)=> o[c] = r[i]);
+    return o;
+  });
+}
+
+function complyBucket(row){
+  const st = String(row.st||'').trim();
+  if (st === 'ปฏิบัติถูกต้อง' || st === 'ปฏิบัติตามกฎหมาย') return 'ok';
+  if (st === 'ปฏิบัติไม่ครบถ้วน') return 'partial';
+  if (st === 'ไม่ปฏิบัติ' || st === 'ไม่ปฏิบัติตามกฎหมาย') return 'bad';
+  // fallback to boolean compliance field if no detailed status text
+  return row.c ? 'ok' : 'bad';
+}
+function enforceBucket(row){
+  const e = String(row.e||'').trim();
+  return ENFORCE_ORDER.includes(e) ? e : 'อื่นๆ';
+}
+
+function loadData(payload, sourceLabel){
+  ALL = rowsToObjects(payload);
+  document.getElementById('syncLabel').textContent = 'ข้อมูลล่าสุด : ' + (sourceLabel || '—');
+  buildFilterOptions();
+  applyFilters();
+}
+
+/* ---------------- Filter options ---------------- */
+function uniqueSorted(arr){
+  return Array.from(new Set(arr)).filter(v=>v!==undefined && v!==null && v!=='' && v!=='nan')
+    .sort((a,b)=>String(a).localeCompare(String(b),'th'));
+}
+function fillDatalist(id, values){
+  const dl = document.getElementById(id);
+  if (!dl) return;
+  dl.innerHTML = values.map(v=>`<option value="${escapeHtml(v)}"></option>`).join('');
+}
+function fillSelect(id, values, placeholder){
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">${placeholder}</option>` + values.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+  sel.value = cur;
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+function buildFilterOptions(){
+  fillDatalist('fTypeList', uniqueSorted(ALL.map(r=>r.t)));
+  fillDatalist('fDistrictList', uniqueSorted(ALL.map(r=>r.d)));
+  fillDatalist('fProjectList', uniqueSorted(ALL.map(r=>r.j)));
+  fillSelect('fYear', uniqueSorted(ALL.map(r=>r.y)).sort((a,b)=>a-b), 'เลือกปีงบประมาณ');
+  fillSelect('fEnforce', ENFORCE_ORDER, 'เลือกทั้งหมด');
+}
+
+/* ---------------- Filtering ---------------- */
+function getFilters(){
+  return {
+    search: document.getElementById('fSearch').value.trim().toLowerCase(),
+    type: document.getElementById('fType').value.trim().toLowerCase(),
+    size: document.querySelector('#fSize .size-chip.active') ? document.querySelector('#fSize .size-chip.active').dataset.v : '',
+    district: document.getElementById('fDistrict').value.trim().toLowerCase(),
+    sewer: document.getElementById('fSewer').value,
+    status: document.getElementById('fStatus').value,
+    enforce: document.getElementById('fEnforce').value,
+    year: document.getElementById('fYear').value,
+    project: document.getElementById('fProject').value.trim().toLowerCase(),
+  };
+}
+
+function applyFilters(){
+  const f = getFilters();
+  FILTERED = ALL.filter(r=>{
+    if (f.search && !String(r.n||'').toLowerCase().includes(f.search)) return false;
+    if (f.type && !String(r.t||'').toLowerCase().includes(f.type)) return false;
+    if (f.size && r.s !== f.size) return false;
+    if (f.district && !String(r.d||'').toLowerCase().includes(f.district)) return false;
+    if (f.sewer === 'yes' && !r.w) return false;
+    if (f.sewer === 'no' && r.w) return false;
+    if (f.status && complyBucket(r) !== f.status) return false;
+    if (f.enforce && enforceBucket(r) !== f.enforce) return false;
+    if (f.year && String(r.y) !== f.year) return false;
+    if (f.project && !String(r.j||'').toLowerCase().includes(f.project)) return false;
+    return true;
+  });
+  currentPage = 1;
+  renderAll();
+}
+
+function attachFilterEvents(){
+  document.getElementById('applyFilters').addEventListener('click', applyFilters);
+  document.getElementById('fSearch').addEventListener('keydown', e=>{ if(e.key==='Enter') applyFilters(); });
+  document.getElementById('fSize').addEventListener('click', e=>{
+    const chip = e.target.closest('.size-chip'); if(!chip) return;
+    const wasActive = chip.classList.contains('active');
+    document.querySelectorAll('#fSize .size-chip').forEach(c=>c.classList.remove('active'));
+    if (!wasActive) chip.classList.add('active');
+  });
+  document.getElementById('resetFilters').addEventListener('click', ()=>{
+    document.getElementById('fSearch').value = '';
+    document.getElementById('fType').value = '';
+    document.getElementById('fDistrict').value = '';
+    document.getElementById('fSewer').value = '';
+    document.getElementById('fStatus').value = '';
+    document.getElementById('fEnforce').value = '';
+    document.getElementById('fYear').value = '';
+    document.getElementById('fProject').value = '';
+    document.querySelectorAll('#fSize .size-chip').forEach(c=>c.classList.remove('active'));
+    applyFilters();
+  });
+}
+
+/* ---------------- Render orchestrator ---------------- */
+function renderAll(){
+  renderKPIs();
+  renderDonuts();
+  renderTop5();
+  renderTable();
+  renderMapSafe();
+}
+
+/* ---------------- KPI cards ---------------- */
+function renderKPIs(){
+  const total = FILTERED.length;
+  const sewerYes = FILTERED.filter(r=>r.w).length;
+  const compliantOk = FILTERED.filter(r=>complyBucket(r)==='ok').length;
+  const sewerPct = total ? Math.round(sewerYes/total*10000)/100 : 0;
+  const compliantPct = total ? Math.round(compliantOk/total*10000)/100 : 0;
+
+  const cards = [
+    { icon:'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 9h6v6H9z"/>', bg:'var(--blue-soft)', color:'var(--blue)',
+      label:'จำนวนแหล่งกำเนิดมลพิษที่ได้รับการตรวจสอบ', value: total.toLocaleString('th-TH'), unit:'แห่ง', pctText:'' },
+    { icon:'<path d="M8 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9"/><path d="M13 2l7 7-7 7"/>', bg:'var(--green-soft)', color:'var(--green)',
+      label:'การเชื่อมต่อท่อเข้าระบบบำบัดน้ำเสียรวม', value: sewerYes.toLocaleString('th-TH'), unit:'แห่ง', pctText:'('+sewerPct.toLocaleString('th-TH')+'%)' },
+    { icon:'<path d="M12 3 3 7v5c0 5 4 8.5 9 9 5-.5 9-4 9-9V7l-9-4Z"/>', bg:'var(--purple-soft)', color:'var(--purple)',
+      label:'การปฏิบัติตามกฎหมายในการระบายน้ำทิ้ง', value: compliantOk.toLocaleString('th-TH'), unit:'แห่ง', pctText:'('+compliantPct.toLocaleString('th-TH')+'%)' },
+  ];
+  document.getElementById('kpiRow').innerHTML = cards.map(c=>`
+    <div class="kpi-card">
+      <div class="kpi-top">
+        <span class="kpi-icon" style="background:${c.bg}; color:${c.color};">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${c.icon}</svg>
+        </span>
+        <span class="kpi-label">${c.label}</span>
+      </div>
+      <div class="kpi-value-row">
+        <span class="kpi-value">${c.value}</span>
+        <span class="kpi-unit">${c.unit}</span>
+        ${c.pctText ? `<span class="kpi-pct" style="color:${c.color}">${c.pctText}</span>` : ''}
+      </div>
+      <button class="kpi-link">ดูรายละเอียด
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+/* ---------------- Donuts ---------------- */
+function destroyChart(key){ if(charts[key]){ charts[key].destroy(); delete charts[key]; } }
+
+function makeDonut(canvasId, labels, data, colors){
+  destroyChart(canvasId);
+  charts[canvasId] = new Chart(document.getElementById(canvasId), {
+    type:'doughnut',
+    data:{ labels, datasets:[{ data, backgroundColor:colors, borderWidth:2, borderColor:'#fff' }] },
+    options:{
+      responsive:true, maintainAspectRatio:true, cutout:'70%',
+      plugins:{ legend:{display:false}, tooltip:{enabled:true} },
+    }
+  });
+}
+
+function renderDonuts(){
+  const total = FILTERED.length;
+
+  // เชื่อมท่อ / ไม่เชื่อมท่อ
+  const sewerYes = FILTERED.filter(r=>r.w).length, sewerNo = total - sewerYes;
+  makeDonut('chartSewer', ['เชื่อมท่อ','ไม่เชื่อมท่อ'], [sewerYes, sewerNo], ['#1AA36A','#D8DEE9']);
+  document.getElementById('sewerTotal').textContent = total.toLocaleString('th-TH');
+  document.getElementById('sewerMid').innerHTML = `<div class="n">${total.toLocaleString('th-TH')}</div><div class="l">ทั้งหมด</div>`;
+  document.getElementById('sewerLegend').innerHTML = [
+    ['เชื่อมท่อ', sewerYes, '#1AA36A'],
+    ['ไม่เชื่อมท่อ', sewerNo, '#D8DEE9'],
+  ].map(([lab,val,col])=>legendRow(lab,val,col,total)).join('');
+
+  // compliance 3-state
+  const buckets = { ok:0, partial:0, bad:0 };
+  FILTERED.forEach(r=> buckets[complyBucket(r)]++ );
+  makeDonut('chartCompliance', ['ปฏิบัติถูกต้อง','ปฏิบัติไม่ครบถ้วน','ไม่ปฏิบัติ'], [buckets.ok,buckets.partial,buckets.bad], [COMPLY_COLORS.ok,COMPLY_COLORS.partial,COMPLY_COLORS.bad]);
+  document.getElementById('complianceTotal').textContent = total.toLocaleString('th-TH');
+  document.getElementById('complianceMid').innerHTML = `<div class="n">${total.toLocaleString('th-TH')}</div><div class="l">ทั้งหมด</div>`;
+  document.getElementById('complianceLegend').innerHTML = [
+    ['ปฏิบัติถูกต้อง', buckets.ok, COMPLY_COLORS.ok],
+    ['ปฏิบัติไม่ครบถ้วน', buckets.partial, COMPLY_COLORS.partial],
+    ['ไม่ปฏิบัติ', buckets.bad, COMPLY_COLORS.bad],
+  ].map(([lab,val,col])=>legendRow(lab,val,col,total)).join('');
+
+  // enforcement status
+  const eBuckets = {}; ENFORCE_ORDER.forEach(k=>eBuckets[k]=0);
+  FILTERED.forEach(r=> eBuckets[enforceBucket(r)]++ );
+  makeDonut('chartEnforce', ENFORCE_ORDER, ENFORCE_ORDER.map(k=>eBuckets[k]), ENFORCE_ORDER.map(k=>ENFORCE_COLORS[k]));
+  document.getElementById('enforceTotal').textContent = total.toLocaleString('th-TH');
+  document.getElementById('enforceMid').innerHTML = `<div class="n">${total.toLocaleString('th-TH')}</div><div class="l">ทั้งหมด</div>`;
+  document.getElementById('enforceLegend').innerHTML = ENFORCE_ORDER.map(k=>legendRow(k, eBuckets[k], ENFORCE_COLORS[k], total)).join('');
+}
+
+function legendRow(label, val, color, total){
+  const pct = total ? Math.round(val/total*1000)/10 : 0;
+  return `<div class="row"><span class="lab"><span class="dot" style="background:${color}"></span>${escapeHtml(label)}</span><span class="val">${val.toLocaleString('th-TH')} (${pct}%)</span></div>`;
+}
+
+/* ---------------- Top 5 projects ---------------- */
+function renderTop5(){
+  const map = {};
+  FILTERED.forEach(r=>{ const key = r.j || 'ไม่ระบุโครงการ'; map[key] = (map[key]||0)+1; });
+  const top = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const max = top.length ? top[0][1] : 1;
+  document.getElementById('top5List').innerHTML = top.map(([name,count],i)=>`
+    <div class="top5-item">
+      <div class="row1">
+        <span class="name"><span class="rank">${i+1}</span>${escapeHtml(name)}</span>
+        <span class="val">${count.toLocaleString('th-TH')}</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(count/max*100)}%"></div></div>
+    </div>
+  `).join('') || '<div style="font-size:12px; color:var(--ink-faint);">ไม่มีข้อมูล</div>';
+}
+
+/* ---------------- Table ---------------- */
+function statusDot(bucket, label, colorMap){
+  return `<span class="dot-status"><span class="d" style="background:${colorMap[bucket]}"></span>${escapeHtml(label)}</span>`;
+}
+function sizeBadge(s){
+  const cls = SIZE_LABEL[s] || 'sz-o';
+  return `<span class="badge-size ${cls}">${escapeHtml(s||'-')}</span>`;
+}
+
+function renderTable(){
+  const total = FILTERED.length;
+  document.getElementById('resultCount').textContent = total.toLocaleString('th-TH');
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage-1)*PAGE_SIZE;
+  const pageRows = FILTERED.slice(start, start+PAGE_SIZE);
+
+  document.getElementById('tableBody').innerHTML = pageRows.map((r,i)=>{
+    const bucket = complyBucket(r);
+    const eb = enforceBucket(r);
+    return `<tr>
+      <td>${start+i+1}</td>
+      <td class="cell-name"><div class="primary">${escapeHtml(r.n||'-')}</div></td>
+      <td>${escapeHtml(r.t||'-')}</td>
+      <td>${sizeBadge(r.s)}</td>
+      <td>${escapeHtml(r.d||'-')}</td>
+      <td>${statusDot(r.w?'yes':'no', r.w?'เชื่อมท่อ':'ไม่เชื่อมท่อ', {yes:'#1AA36A', no:'#E0452F'})}</td>
+      <td>${statusDot(bucket, COMPLY_LABEL[bucket], COMPLY_COLORS)}</td>
+      <td>${statusDot(eb, eb, ENFORCE_COLORS)}</td>
+      <td>${r.y!=null ? r.y : '-'}</td>
+      <td>${escapeHtml(r.j||'-')}</td>
+      <td><button class="eye-btn" title="ดูรายละเอียด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="11" style="text-align:center; color:var(--ink-faint); padding:30px;">ไม่พบข้อมูลที่ตรงกับตัวกรอง</td></tr>`;
+
+  renderPager('pagerTop', totalPages);
+  renderPager('pagerBottom', totalPages);
+}
+
+function renderPager(elId, totalPages){
+  const el = document.getElementById(elId);
+  const pages = [];
+  const add = p => pages.push(p);
+  add(1);
+  if (currentPage > 3) add('...');
+  for (let p = Math.max(2,currentPage-1); p <= Math.min(totalPages-1, currentPage+1); p++) add(p);
+  if (currentPage < totalPages-2) add('...');
+  if (totalPages > 1) add(totalPages);
+
+  let html = `<button ${currentPage<=1?'disabled':''} data-p="${currentPage-1}">‹</button>`;
+  pages.forEach(p=>{
+    if (p==='...') html += `<span class="dots">…</span>`;
+    else html += `<button class="${p===currentPage?'active':''}" data-p="${p}">${p}</button>`;
+  });
+  html += `<button ${currentPage>=totalPages?'disabled':''} data-p="${currentPage+1}">›</button>`;
+  el.innerHTML = html;
+  el.querySelectorAll('button[data-p]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const p = parseInt(btn.dataset.p,10);
+      if (!isNaN(p)){ currentPage = p; renderTable(); window.scrollTo({top:0, behavior:'smooth'}); }
+    });
+  });
+}
+
+/* ---------------- Map ---------------- */
+async function renderMapSafe(){
+  const ok = await ensureLib('L');
+  if (!ok) return;
+  renderMap();
+}
+function clusterColor(count){
+  if (count >= 201) return '#E0452F';
+  if (count >= 101) return '#F97316';
+  if (count >= 51) return '#EAB308';
+  if (count >= 21) return '#84CC16';
+  return '#22C55E';
+}
+function renderMap(){
+  if (!mapInstance){
+    mapInstance = L.map('mapview', { scrollWheelZoom:true }).setView([13.9, 100.6], 6);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:'&copy; OpenStreetMap contributors', maxZoom:18,
+    }).addTo(mapInstance);
+    markerCluster = L.markerClusterGroup({
+      iconCreateFunction: cluster => {
+        const count = cluster.getChildCount();
+        const color = clusterColor(count);
+        return L.divIcon({
+          html: `<div style="background:${color}; color:#fff; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; border:3px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.25);">${count}</div>`,
+          className:'', iconSize:[40,40],
+        });
+      }
+    });
+    mapInstance.addLayer(markerCluster);
+  }
+  markerCluster.clearLayers();
+  const pts = FILTERED.filter(r=> r.a!=null && r.o!=null && !isNaN(r.a) && !isNaN(r.o));
+  pts.forEach(r=>{
+    const bucket = complyBucket(r);
+    const color = bucket==='ok' ? '#1AA36A' : (bucket==='partial' ? '#E6A417' : '#E0452F');
+    const m = L.circleMarker([r.a, r.o], { radius:6, color:'#fff', weight:1.5, fillColor:color, fillOpacity:.95 });
+    m.bindPopup(`<b>${escapeHtml(r.n||'-')}</b><br>${escapeHtml(r.t||'-')}<br>${escapeHtml(r.d||'-')}`);
+    markerCluster.addLayer(m);
+  });
+  setTimeout(()=>{ if (mapInstance) mapInstance.invalidateSize(); }, 200);
+}
+
+/* ---------------- Upload mapping (shared by file-upload + Google Sheet) ---------------- */
+function pick(o, keys){ for(const k of keys){ if(o[k]!==undefined && o[k]!==null && o[k]!=='') return o[k]; } return null; }
+function mapUploadedRow(o){
+  const name = pick(o, ['ชื่อโครงการ','ชื่อแหล่งกำเนิดมลพิษ','name']);
+  if (!name) return null;
+  const rawStatus = String(pick(o, ['สถานะปัจจุบัน','การปฏิบัติตามกฎหมายในการระบายน้ำทิ้ง','status'])||'').trim();
+  const sewer = pick(o, ['การเชื่อมต่อท่อเข้าระบบบำบัดน้ำเสียรวม','เชื่อมท่อ','sewer']);
+  const lat = parseFloat(pick(o,['lat','ละติจูด']));
+  const lng = parseFloat(pick(o,['long','ลองจิจูด','lng']));
+  const year = pick(o, ['ปีงบประมาณ','ปีงบประมาณที่เริ่มตรวจ','year']);
+  const enforce = String(pick(o, ['สถานะการบังคับใช้กฎหมาย','enforcement'])||'').trim();
+  const compliantBool = rawStatus === 'ปฏิบัติถูกต้อง' || rawStatus === 'ปฏิบัติตามกฎหมาย';
+  return [
+    String(name).trim(),
+    String(pick(o,['ประเภทแหล่งกำเนิดมลพิษ','ประเภทแหล่ง','type'])||'').trim(),
+    compliantBool,
+    isNaN(lat)?null:Math.round(lat*1e6)/1e6,
+    isNaN(lng)?null:Math.round(lng*1e6)/1e6,
+    String(pick(o,['ขนาด','ขนาดของแหล่ง','size'])||'').trim(),
+    String(pick(o,['เขต/อำเภอ','เขต','district'])||'').trim(),
+    String(pick(o,['จังหวัด','province'])||'').trim(),
+    String(sewer||'').trim().startsWith('เชื่อมต่อ') || String(sewer||'').trim()==='เชื่อมท่อ',
+    year ? parseInt(year,10) : null,
+    String(pick(o,['โครงการ','โครงการที่เข้าตรวจสอบ','project'])||'').trim(),
+    rawStatus,
+    enforce,
+  ];
+}
+
+/* ---------------- Upload fallback ---------------- */
+function initUpload(){
+  const input = document.getElementById('fileInput');
+  input.addEventListener('change', e=>{
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev=>{
+      try{
+        const wb = XLSX.read(ev.target.result, {type:'binary', cellDates:false});
+        let combined = [];
+        wb.SheetNames.forEach(name=>{
+          combined = combined.concat(XLSX.utils.sheet_to_json(wb.Sheets[name], {defval:null}));
+        });
+        const rows = combined.map(o=>mapUploadedRow(o)).filter(Boolean);
+        if (!rows.length){ alert('ไม่พบข้อมูลที่ตรงกับรูปแบบคอลัมน์ที่คาดไว้ในไฟล์นี้'); return; }
+        const payload = { cols:['n','t','c','a','o','s','d','p','w','y','j','st','e'], rows };
+        loadData(payload, 'อัปโหลดโดยผู้ใช้ · ' + file.name + ' · ' + new Date().toLocaleString('th-TH'));
+        setGsheetMsg('โหลดไฟล์ "' + file.name + '" สำเร็จ (' + rows.length.toLocaleString('th-TH') + ' รายการ)', 'ok');
+      }catch(err){ alert('อ่านไฟล์ไม่สำเร็จ: ' + err.message); }
+    };
+    reader.readAsBinaryString(file);
+  });
+}
+
+/* ---------------- Google Sheet live connect (unchanged pipeline) ---------------- */
+const LS_GSHEET = 'pollution_gsheet_config_v1';
+const DEFAULT_GSHEET_URL = 'https://docs.google.com/spreadsheets/d/1WWFLt5HF9wrMfese3sTq0WOQi5OI2Xb7EbDDYKvUi5c/edit?usp=sharing';
+let gsheetConfig = null;
+let gsheetTimer = null;
+const REFRESH_MS = 60000;
+
+function saveGsheetConfig(cfg){ try{ localStorage.setItem(LS_GSHEET, JSON.stringify(cfg)); }catch(e){} }
+function loadGsheetConfig(){ try{ const s = localStorage.getItem(LS_GSHEET); return s?JSON.parse(s):null; }catch(e){ return null; } }
+function clearGsheetConfig(){ try{ localStorage.removeItem(LS_GSHEET); }catch(e){} }
+
+function parseGsheetInput(raw){
+  raw = (raw||'').trim();
+  if (!raw) return null;
+  let gid = '0';
+  const gidMatch = raw.match(/[#&?]gid=([0-9]+)/);
+  if (gidMatch) gid = gidMatch[1];
+  const pubMatch = raw.match(/\/spreadsheets\/d\/e\/([a-zA-Z0-9-_]+)/);
+  if (pubMatch) return { published:true, id:pubMatch[1], gid };
+  const idMatch = raw.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (idMatch) return { published:false, id:idMatch[1], gid };
+  if (/^[a-zA-Z0-9-_]{20,}$/.test(raw)) return { published:false, id:raw, gid };
+  return null;
+}
+function buildCsvCandidates(parsed){
+  if (!parsed) return [];
+  if (parsed.published){
+    return [
+      'https://docs.google.com/spreadsheets/d/e/' + parsed.id + '/pub?output=csv&gid=' + parsed.gid,
+      'https://docs.google.com/spreadsheets/d/e/' + parsed.id + '/pub?output=csv',
+    ];
+  }
+  return [
+    'https://docs.google.com/spreadsheets/d/' + parsed.id + '/export?format=csv&gid=' + parsed.gid,
+    'https://docs.google.com/spreadsheets/d/' + parsed.id + '/gviz/tq?tqx=out:csv&gid=' + parsed.gid,
+  ];
+}
+async function fetchSheetCsv(parsed){
+  const candidates = buildCsvCandidates(parsed);
+  let lastErr = null;
+  for (const url of candidates){
+    try{
+      const res = await fetch(url, { cache:'no-store' });
+      if (!res.ok){ lastErr = new Error('เซิร์ฟเวอร์ตอบกลับรหัส ' + res.status); continue; }
+      const text = await res.text();
+      if (/^\s*<(!DOCTYPE|html)/i.test(text)){ lastErr = new Error('ชีตนี้ยังไม่เปิดสิทธิ์แบบสาธารณะ'); continue; }
+      return text;
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error('ไม่สามารถดึงข้อมูลจากลิงก์นี้ได้');
+}
+function setGsheetMsg(msg, cls){
+  const el = document.getElementById('gsheetMsg');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'gsheet-msg' + (cls?(' '+cls):'');
+}
+async function connectGsheet(rawUrl, opts){
+  opts = opts || {};
+  const parsed = parseGsheetInput(rawUrl);
+  if (!parsed){ setGsheetMsg('รูปแบบลิงก์ไม่ถูกต้อง กรุณาวางลิงก์ Google Sheet ให้ครบถ้วน', 'err'); return false; }
+  if (!opts.silent) setGsheetMsg('กำลังเชื่อมต่อและดึงข้อมูล...', '');
+  try{
+    const libOk = await ensureLib('XLSX');
+    if (!libOk) throw new Error('โหลดไลบรารีอ่านไฟล์ (XLSX) ไม่สำเร็จ');
+    const csvText = await fetchSheetCsv(parsed);
+    const wb = XLSX.read(csvText, { type:'string' });
+    const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval:null });
+    const rows = json.map(o=>mapUploadedRow(o)).filter(Boolean);
+    if (!rows.length) throw new Error('ดึงข้อมูลสำเร็จ แต่ไม่พบแถวที่ตรงกับรูปแบบคอลัมน์ที่คาดไว้');
+    const payload = { cols:['n','t','c','a','o','s','d','p','w','y','j','st','e'], rows };
+    loadData(payload, new Date().toLocaleString('th-TH'));
+    setGsheetMsg('เชื่อมต่อสำเร็จ · ดึงข้อมูล ' + rows.length.toLocaleString('th-TH') + ' รายการ', 'ok');
+    document.getElementById('gsheetLiveDot').classList.add('on');
+    document.getElementById('gsheetRefreshRow').hidden = false;
+    return true;
+  }catch(err){
+    setGsheetMsg('เชื่อมต่อไม่สำเร็จ: ' + err.message, 'err');
+    document.getElementById('gsheetLiveDot').classList.remove('on');
+    return false;
+  }
+}
+function setGsheetAutoRefresh(on, ms){
+  if (gsheetTimer){ clearInterval(gsheetTimer); gsheetTimer = null; }
+  const label = document.getElementById('gsheetRefreshLabel');
+  const btn = document.getElementById('gsheetRefreshToggleBtn');
+  if (on){
+    gsheetTimer = setInterval(()=>{ if (gsheetConfig) connectGsheet(gsheetConfig.raw, {silent:true}); }, ms);
+    if (label) label.textContent = 'รีเฟรชอัตโนมัติ: ทุก ' + Math.round(ms/1000) + ' วินาที';
+  } else if (label) label.textContent = 'รีเฟรชอัตโนมัติ: ปิด';
+  if (gsheetConfig){ gsheetConfig.autoRefresh = on; gsheetConfig.refreshMs = ms; saveGsheetConfig(gsheetConfig); }
+}
+function initGsheetConnect(){
+  const modal = document.getElementById('gsheetModal');
+  const urlInput = document.getElementById('gsheetUrlInput');
+  const openBtns = [document.getElementById('gsheetOpenBtn'), document.getElementById('settingsAvatarBtn'), document.getElementById('navSettings')];
+  openBtns.forEach(b=> b && b.addEventListener('click', ()=>{ modal.hidden = false; }));
+  document.getElementById('gsheetCloseBtn').addEventListener('click', ()=>{ modal.hidden = true; });
+  modal.addEventListener('click', e=>{ if (e.target === modal) modal.hidden = true; });
+
+  document.getElementById('gsheetConnectBtn').addEventListener('click', async ()=>{
+    const raw = urlInput.value.trim();
+    if (!raw){ setGsheetMsg('กรุณาวางลิงก์ Google Sheet ก่อน', 'err'); return; }
+    const success = await connectGsheet(raw);
+    if (success){ gsheetConfig = { raw, autoRefresh:false, refreshMs:REFRESH_MS }; saveGsheetConfig(gsheetConfig); }
+  });
+  document.getElementById('gsheetRefreshToggleBtn').addEventListener('click', ()=>{
+    if (!gsheetConfig) return;
+    setGsheetAutoRefresh(!gsheetConfig.autoRefresh, gsheetConfig.refreshMs || REFRESH_MS);
+  });
+  document.getElementById('gsheetRefreshNowBtn').addEventListener('click', ()=>{ if (gsheetConfig) connectGsheet(gsheetConfig.raw); });
+  document.getElementById('gsheetDisconnectBtn').addEventListener('click', ()=>{
+    setGsheetAutoRefresh(false, REFRESH_MS);
+    gsheetConfig = null; clearGsheetConfig();
+    document.getElementById('gsheetRefreshRow').hidden = true;
+    document.getElementById('gsheetLiveDot').classList.remove('on');
+    setGsheetMsg('ยกเลิกการเชื่อมต่อแล้ว', '');
+    loadData(EMBEDDED_DATA, 'ยังไม่ได้เชื่อมต่อ Google Sheet');
+  });
+
+  const saved = loadGsheetConfig();
+  if (saved && saved.raw){
+    urlInput.value = saved.raw;
+    gsheetConfig = saved;
+    connectGsheet(saved.raw, {silent:true}).then(ok=>{ if (ok && saved.autoRefresh) setGsheetAutoRefresh(true, saved.refreshMs || REFRESH_MS); });
+  } else if (DEFAULT_GSHEET_URL){
+    urlInput.value = DEFAULT_GSHEET_URL;
+    gsheetConfig = { raw: DEFAULT_GSHEET_URL, autoRefresh:true, refreshMs:REFRESH_MS };
+    connectGsheet(DEFAULT_GSHEET_URL, {silent:true}).then(ok=>{
+      if (ok){ saveGsheetConfig(gsheetConfig); setGsheetAutoRefresh(true, REFRESH_MS); }
+    });
+  }
+}
+
+/* ---------------- CSV export ---------------- */
+function exportCsv(){
+  const cols = ['ลำดับ','ชื่อแหล่งกำเนิดมลพิษ','ประเภทแหล่ง','ขนาด','เขต/อำเภอ','เชื่อมท่อ','การปฏิบัติตามกฎหมาย','สถานะการบังคับใช้กฎหมาย','ปีงบประมาณ','โครงการ'];
+  const lines = [cols.join(',')];
+  FILTERED.forEach((r,i)=>{
+    const bucket = complyBucket(r);
+    lines.push([i+1, r.n, r.t, r.s, r.d, r.w?'เชื่อมท่อ':'ไม่เชื่อมท่อ', COMPLY_LABEL[bucket], enforceBucket(r), r.y||'', r.j||'']
+      .map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(','));
+  });
+  const blob = new Blob(['\uFEFF'+lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'pollution_sources_' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ---------------- Sidebar nav scroll ---------------- */
+function initSideNav(){
+  document.querySelectorAll('.side-nav button[data-target]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.side-nav button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const target = document.getElementById(btn.dataset.target);
+      if (target) target.scrollIntoView({behavior:'smooth', block:'start'});
+    });
+  });
+}
+
+/* ---------------- Init ---------------- */
+function init(){
+  initSideNav();
+  attachFilterEvents();
+  initUpload();
+  document.getElementById('exportBtn').addEventListener('click', exportCsv);
+  document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
+  document.getElementById('viewAllProjects').addEventListener('click', ()=>{
+    document.getElementById('sec-table').scrollIntoView({behavior:'smooth'});
+  });
+  loadData(EMBEDDED_DATA, 'กำลังเชื่อมต่อ Google Sheet...');
+  initGsheetConnect();
+}
+document.addEventListener('DOMContentLoaded', init);
+})();
+
+</script>
+</body>
+</html>
