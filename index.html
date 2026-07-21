@@ -1065,22 +1065,35 @@ function buildCsvCandidates(parsed){
       'https://docs.google.com/spreadsheets/d/e/' + parsed.id + '/pub?output=csv',
     ];
   }
+  // gviz/tq is tried first: it responds with proper CORS headers for
+  // publicly-shared sheets, whereas /export?format=csv can redirect
+  // through accounts.google.com (no CORS headers) and hang/fail silently
+  // in the browser when the sheet isn't fully public.
   return [
-    'https://docs.google.com/spreadsheets/d/' + parsed.id + '/export?format=csv&gid=' + parsed.gid,
     'https://docs.google.com/spreadsheets/d/' + parsed.id + '/gviz/tq?tqx=out:csv&gid=' + parsed.gid,
+    'https://docs.google.com/spreadsheets/d/' + parsed.id + '/export?format=csv&gid=' + parsed.gid,
   ];
+}
+function fetchWithTimeout(url, ms){
+  const controller = new AbortController();
+  const timer = setTimeout(()=> controller.abort(), ms);
+  return fetch(url, { cache:'no-store', signal: controller.signal }).finally(()=> clearTimeout(timer));
 }
 async function fetchSheetCsv(parsed){
   const candidates = buildCsvCandidates(parsed);
   let lastErr = null;
   for (const url of candidates){
     try{
-      const res = await fetch(url, { cache:'no-store' });
+      const res = await fetchWithTimeout(url, 12000);
       if (!res.ok){ lastErr = new Error('เซิร์ฟเวอร์ตอบกลับรหัส ' + res.status); continue; }
       const text = await res.text();
-      if (/^\s*<(!DOCTYPE|html)/i.test(text)){ lastErr = new Error('ชีตนี้ยังไม่เปิดสิทธิ์แบบสาธารณะ'); continue; }
+      if (/^\s*<(!DOCTYPE|html)/i.test(text)){ lastErr = new Error('ชีตนี้ยังไม่เปิดสิทธิ์แบบสาธารณะ (ตั้งค่าแชร์เป็น "ทุกคนที่มีลิงก์ - ดูได้")'); continue; }
+      if (!text || !text.trim()){ lastErr = new Error('ชีตตอบกลับว่างเปล่า'); continue; }
       return text;
-    }catch(e){ lastErr = e; }
+    }catch(e){
+      if (e && e.name === 'AbortError'){ lastErr = new Error('หมดเวลาเชื่อมต่อ (เกิน 12 วินาที) — อาจถูกบล็อกโดยเครือข่ายหรือส่วนขยายเบราว์เซอร์'); }
+      else lastErr = e;
+    }
   }
   throw lastErr || new Error('ไม่สามารถดึงข้อมูลจากลิงก์นี้ได้');
 }
