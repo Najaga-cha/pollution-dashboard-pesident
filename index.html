@@ -195,7 +195,36 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
   box-shadow:var(--shadow); padding:16px 16px 14px; display:flex; flex-direction:column;
 }
 .panel-title{font-family:var(--font-display); font-size:13.5px; font-weight:600; color:var(--ink); margin:0 0 12px;}
-.map-panel #mapview{height:380px; border-radius:11px; overflow:hidden; border:1px solid var(--line);}
+.map-panel{position:relative;}
+.map-panel-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+.map-panel-head .panel-title{margin:0;}
+.map-toolbar{display:flex; align-items:center; gap:6px;}
+.map-tool-btn{
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  width:30px; height:30px; border-radius:9px; border:1px solid var(--line);
+  background:var(--card); color:var(--ink-soft); cursor:pointer;
+  transition:all .15s ease; padding:0; flex-shrink:0;
+}
+.map-tool-btn svg{width:15px; height:15px; flex-shrink:0;}
+.map-tool-btn:hover{background:var(--blue-soft); color:var(--blue); border-color:var(--blue-soft);}
+.map-tool-btn:active{transform:scale(.94);}
+.map-panel #mapview{
+  height:380px; border-radius:11px; overflow:hidden; border:1px solid var(--line);
+  background:var(--gray-soft); transition:height .2s ease;
+}
+.map-panel.is-fullscreen{
+  position:fixed; inset:14px; z-index:200; padding:18px 18px 16px;
+  box-shadow:0 24px 60px -20px rgba(8,18,38,.45);
+}
+.map-panel.is-fullscreen #mapview{height:calc(100% - 100px);}
+.map-panel.is-fullscreen .map-legend{position:absolute; right:22px; bottom:24px; z-index:5; box-shadow:var(--shadow); max-width:180px;}
+.map-scrim{display:none; position:fixed; inset:0; background:rgba(10,18,36,.45); z-index:190;}
+.map-scrim.show{display:block;}
+.map-empty-note{
+  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:401;
+  background:#fff; border:1px solid var(--line); border-radius:9px; padding:7px 14px;
+  font-size:12px; color:var(--ink-soft); box-shadow:var(--shadow); pointer-events:none;
+}
 .map-legend{
   margin-top:10px; background:var(--card); border:1px solid var(--line); border-radius:9px;
   padding:9px 11px; font-size:11.5px; color:var(--ink-soft); position:relative;
@@ -479,7 +508,17 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
 
       <div class="insight-row">
         <div class="panel map-panel" id="sec-map">
-          <div class="panel-title">พิกัดแหล่งกำเนิดมลพิษ</div>
+          <div class="map-panel-head">
+            <div class="panel-title">พิกัดแหล่งกำเนิดมลพิษ</div>
+            <div class="map-toolbar">
+              <button type="button" class="map-tool-btn" id="mapResetBtn" title="รีเซ็ทมุมมองแผนที่">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              </button>
+              <button type="button" class="map-tool-btn" id="mapExpandBtn" title="ขยายแผนที่เต็มจอ">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+              </button>
+            </div>
+          </div>
           <div id="mapview"></div>
           <div class="map-legend">
             <div class="lg-title">จำนวนแหล่ง (แห่ง)</div>
@@ -949,6 +988,8 @@ async function renderMapSafe(){
   if (!ok) return;
   renderMap();
 }
+const MAP_DEFAULT_CENTER = [13.9, 100.6];
+const MAP_DEFAULT_ZOOM = 6;
 function clusterColor(count){
   if (count >= 201) return '#E0452F';
   if (count >= 101) return '#F97316';
@@ -957,12 +998,14 @@ function clusterColor(count){
   return '#22C55E';
 }
 function renderMap(){
+  const mapEl = document.getElementById('mapview');
   if (!mapInstance){
-    mapInstance = L.map('mapview', { scrollWheelZoom:true }).setView([13.9, 100.6], 6);
+    mapInstance = L.map('mapview', { scrollWheelZoom:true }).setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution:'&copy; OpenStreetMap contributors', maxZoom:18,
     }).addTo(mapInstance);
     markerCluster = L.markerClusterGroup({
+      maxClusterRadius:60,
       iconCreateFunction: cluster => {
         const count = cluster.getChildCount();
         const color = clusterColor(count);
@@ -975,7 +1018,15 @@ function renderMap(){
     mapInstance.addLayer(markerCluster);
   }
   markerCluster.clearLayers();
-  const pts = FILTERED.filter(r=> r.a!=null && r.o!=null && !isNaN(r.a) && !isNaN(r.o));
+  // Bug fix: coordinates were sometimes plotted from stale/rounded values or
+  // the map never re-centered on the actual data, so the cluster could sit
+  // far off-frame (e.g. out over open water) after loading a new dataset.
+  // We now validate coordinates strictly (finite numbers within real lat/lng
+  // ranges) and always fit the view to whatever data is currently shown.
+  const pts = FILTERED.filter(r=>
+    r.a!=null && r.o!=null && Number.isFinite(r.a) && Number.isFinite(r.o) &&
+    Math.abs(r.a) <= 90 && Math.abs(r.o) <= 180 && !(r.a===0 && r.o===0)
+  );
   pts.forEach(r=>{
     const bucket = complyBucket(r);
     const color = bucket==='ok' ? '#1AA36A' : (bucket==='partial' ? '#E6A417' : '#E0452F');
@@ -983,7 +1034,67 @@ function renderMap(){
     m.bindPopup(`<b>${escapeHtml(r.n||'-')}</b><br>${escapeHtml(r.t||'-')}<br>${escapeHtml(r.d||'-')}`);
     markerCluster.addLayer(m);
   });
-  setTimeout(()=>{ if (mapInstance) mapInstance.invalidateSize(); }, 200);
+  let emptyNote = mapEl.parentElement.querySelector('.map-empty-note');
+  if (!pts.length){
+    if (!emptyNote){
+      emptyNote = document.createElement('div');
+      emptyNote.className = 'map-empty-note';
+      emptyNote.textContent = 'ไม่มีพิกัดที่ตรงกับตัวกรองปัจจุบัน';
+      mapEl.parentElement.appendChild(emptyNote);
+    }
+  } else if (emptyNote){
+    emptyNote.remove();
+  }
+  setTimeout(()=>{
+    if (!mapInstance) return;
+    mapInstance.invalidateSize();
+    if (pts.length){
+      mapInstance.fitBounds(markerCluster.getBounds(), { padding:[24,24], maxZoom:11 });
+    } else {
+      mapInstance.setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
+    }
+  }, 200);
+}
+function resetMapView(){
+  if (!mapInstance) return;
+  mapInstance.invalidateSize();
+  if (markerCluster && markerCluster.getLayers().length){
+    mapInstance.fitBounds(markerCluster.getBounds(), { padding:[24,24], maxZoom:11 });
+  } else {
+    mapInstance.setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
+  }
+}
+function toggleMapFullscreen(){
+  const panel = document.getElementById('sec-map');
+  const btn = document.getElementById('mapExpandBtn');
+  let scrim = document.getElementById('mapScrim');
+  if (!scrim){
+    scrim = document.createElement('div');
+    scrim.id = 'mapScrim';
+    scrim.className = 'map-scrim';
+    document.body.appendChild(scrim);
+    scrim.addEventListener('click', toggleMapFullscreen);
+  }
+  const goingFullscreen = !panel.classList.contains('is-fullscreen');
+  panel.classList.toggle('is-fullscreen', goingFullscreen);
+  scrim.classList.toggle('show', goingFullscreen);
+  if (btn){
+    btn.title = goingFullscreen ? 'ย่อแผนที่กลับ' : 'ขยายแผนที่เต็มจอ';
+    btn.innerHTML = goingFullscreen
+      ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v6H3"/><path d="M15 21v-6h6"/><path d="M3 9l7-7"/><path d="M21 15l-7 7"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>';
+  }
+  document.body.style.overflow = goingFullscreen ? 'hidden' : '';
+  setTimeout(()=>{ if (mapInstance) mapInstance.invalidateSize(); }, 220);
+}
+function initMapControls(){
+  const resetBtn = document.getElementById('mapResetBtn');
+  const expandBtn = document.getElementById('mapExpandBtn');
+  if (resetBtn) resetBtn.addEventListener('click', resetMapView);
+  if (expandBtn) expandBtn.addEventListener('click', toggleMapFullscreen);
+  document.addEventListener('keydown', e=>{
+    if (e.key === 'Escape' && document.getElementById('sec-map').classList.contains('is-fullscreen')) toggleMapFullscreen();
+  });
 }
 
 /* ---------------- Upload mapping (shared by file-upload + Google Sheet) ---------------- */
@@ -1239,6 +1350,7 @@ function init(){
       document.getElementById('sec-table').scrollIntoView({behavior:'smooth'});
     });
   });
+  safeStep('initMapControls', initMapControls);
   safeStep('loadInitialData', ()=> loadData(EMBEDDED_DATA, 'กำลังเชื่อมต่อ Google Sheet...'));
   // If Chart.js hadn't finished loading (or was still loading via the
   // fallback CDN) when the donuts were first drawn, re-render them once it
