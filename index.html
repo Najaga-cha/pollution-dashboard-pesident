@@ -1034,8 +1034,8 @@ function initUpload(){
 }
 
 /* ---------------- Google Sheet live connect (unchanged pipeline) ---------------- */
-const LS_GSHEET = 'pollution_gsheet_config_v1';
-const DEFAULT_GSHEET_URL = 'https://docs.google.com/spreadsheets/d/1WWFLt5HF9wrMfese3sTq0WOQi5OI2Xb7EbDDYKvUi5c/edit?usp=sharing';
+const LS_GSHEET = 'pollution_gsheet_config_v2';
+const DEFAULT_GSHEET_URL = 'https://docs.google.com/spreadsheets/d/1PS-WLHHKlSMnHB86J0YTp3httanRNoOgLE7IwmZwrik/edit?usp=sharing';
 let gsheetConfig = null;
 let gsheetTimer = null;
 const REFRESH_MS = 60000;
@@ -1110,8 +1110,10 @@ async function connectGsheet(rawUrl, opts){
     document.getElementById('gsheetRefreshRow').hidden = false;
     return true;
   }catch(err){
+    console.error('เชื่อมต่อ Google Sheet ไม่สำเร็จ:', err);
     setGsheetMsg('เชื่อมต่อไม่สำเร็จ: ' + err.message, 'err');
     document.getElementById('gsheetLiveDot').classList.remove('on');
+    document.getElementById('syncLabel').textContent = 'เชื่อมต่อ Google Sheet ไม่สำเร็จ (คลิกเพื่อดูสาเหตุ)';
     return false;
   }
 }
