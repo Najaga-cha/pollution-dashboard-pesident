@@ -9,9 +9,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.css';" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.min.css';" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.min.css';" />
 
 <style>
 :root{
@@ -595,10 +595,10 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chart.js/4.4.4/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chart.js/4.4.4/chart.umd.min.js" onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js';document.head.appendChild(s);"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js';document.head.appendChild(s);"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js" onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js';document.head.appendChild(s);"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';document.head.appendChild(s);"></script>
 <script>
 const EMBEDDED_DATA = {"cols":["n","t","c","a","o","s","d","p","w","y","j","st","e"],"rows":[]};
 </script>
@@ -805,6 +805,13 @@ function renderKPIs(){
 function destroyChart(key){ if(charts[key]){ charts[key].destroy(); delete charts[key]; } }
 
 function makeDonut(canvasId, labels, data, colors){
+  if (typeof Chart === 'undefined'){
+    // Chart.js failed to load from every CDN attempted — degrade gracefully
+    // instead of throwing, so the rest of the dashboard (incl. Google Sheet
+    // connection) keeps working without the donut charts.
+    console.warn('Chart.js ยังไม่พร้อมใช้งาน ข้ามการวาดกราฟ:', canvasId);
+    return;
+  }
   destroyChart(canvasId);
   charts[canvasId] = new Chart(document.getElementById(canvasId), {
     type:'doughnut',
@@ -1212,17 +1219,34 @@ function initSideNav(){
 }
 
 /* ---------------- Init ---------------- */
+// Each step below is isolated in its own try/catch. This matters because a
+// thrown error used to abort the rest of init() silently — including the
+// call to initGsheetConnect() — which is why the header could get stuck on
+// "กำลังเชื่อมต่อ Google Sheet..." forever even though nothing was actually
+// still connecting. Now a failure in one step (e.g. a chart library that
+// failed to load) can never block the Google Sheet connection from running.
+function safeStep(name, fn){
+  try{ fn(); }catch(e){ console.error('init step failed: ' + name, e); }
+}
 function init(){
-  initSideNav();
-  attachFilterEvents();
-  initUpload();
-  document.getElementById('exportBtn').addEventListener('click', exportCsv);
-  document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
-  document.getElementById('viewAllProjects').addEventListener('click', ()=>{
-    document.getElementById('sec-table').scrollIntoView({behavior:'smooth'});
+  safeStep('initSideNav', initSideNav);
+  safeStep('attachFilterEvents', attachFilterEvents);
+  safeStep('initUpload', initUpload);
+  safeStep('exportButtons', ()=>{
+    document.getElementById('exportBtn').addEventListener('click', exportCsv);
+    document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
+    document.getElementById('viewAllProjects').addEventListener('click', ()=>{
+      document.getElementById('sec-table').scrollIntoView({behavior:'smooth'});
+    });
   });
-  loadData(EMBEDDED_DATA, 'กำลังเชื่อมต่อ Google Sheet...');
-  initGsheetConnect();
+  safeStep('loadInitialData', ()=> loadData(EMBEDDED_DATA, 'กำลังเชื่อมต่อ Google Sheet...'));
+  // If Chart.js hadn't finished loading (or was still loading via the
+  // fallback CDN) when the donuts were first drawn, re-render them once it
+  // becomes available so the charts still appear.
+  safeStep('chartRetry', ()=>{
+    ensureLib('Chart').then(ok=>{ if (ok) safeStep('renderDonutsRetry', renderDonuts); });
+  });
+  safeStep('initGsheetConnect', initGsheetConnect);
 }
 document.addEventListener('DOMContentLoaded', init);
 })();
