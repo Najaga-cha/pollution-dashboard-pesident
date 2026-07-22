@@ -1375,7 +1375,7 @@ function renderMap(){
     mapInstance = L.map('mapview', { scrollWheelZoom:true }).setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
     mapTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       attribution:'&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OpenStreetMap contributors',
-      maxZoom:19, subdomains:'abcd', crossOrigin:true,
+      maxZoom:19, subdomains:'abcd',
     }).addTo(mapInstance);
     markerCluster = L.markerClusterGroup({
       maxClusterRadius:60,
