@@ -229,9 +229,9 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .insight-row{display:grid; grid-template-columns:1.5fr .82fr .82fr .82fr 1fr; gap:16px; margin-bottom:18px; align-items:stretch;}
 .panel{
   background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
-  box-shadow:var(--shadow); padding:16px 16px 14px; display:flex; flex-direction:column;
+  box-shadow:var(--shadow); padding:20px 20px 18px; display:flex; flex-direction:column;
 }
-.panel-title{font-family:var(--font-display); font-size:13.5px; font-weight:600; color:var(--ink); margin:0 0 12px;}
+.panel-title{font-family:var(--font-display); font-size:14.5px; font-weight:600; color:var(--ink); margin:0 0 12px;}
 .map-panel{position:relative;}
 .map-panel-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
 .map-panel-head .panel-title{margin:0;}
@@ -245,6 +245,7 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .map-tool-btn svg{width:15px; height:15px; flex-shrink:0;}
 .map-tool-btn:hover{background:var(--blue-soft); color:var(--blue); border-color:var(--blue-soft);}
 .map-tool-btn:active{transform:scale(.94);}
+.map-canvas-wrap{position:relative;}
 .map-panel #mapview{
   height:380px; border-radius:11px; overflow:hidden; border:1px solid var(--line);
   background:var(--gray-soft); transition:height .2s ease;
@@ -256,7 +257,7 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
   box-shadow:0 24px 60px -20px rgba(8,18,38,.45);
 }
 .map-panel.is-fullscreen #mapview{height:calc(100% - 100px);}
-.map-panel.is-fullscreen .map-legend{position:absolute; right:22px; bottom:24px; z-index:20; box-shadow:var(--shadow); max-width:180px; max-height:calc(100% - 48px); overflow-y:auto;}
+.map-panel.is-fullscreen .map-legend{left:22px; right:auto; bottom:24px; max-height:calc(100% - 48px); overflow-y:auto;}
 .map-scrim{display:none; position:fixed; inset:0; background:rgba(10,18,36,.45); z-index:190;}
 .map-scrim.show{display:block;}
 .map-empty-note{
@@ -265,27 +266,28 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
   font-size:12px; color:var(--ink-soft); box-shadow:var(--shadow); pointer-events:none;
 }
 .map-legend{
-  margin-top:10px; background:var(--card); border:1px solid var(--line); border-radius:9px;
-  padding:9px 11px; font-size:11.5px; color:var(--ink-soft); position:relative;
+  position:absolute; left:24px; bottom:24px; z-index:15; max-width:150px;
+  background:rgba(255,255,255,.94); backdrop-filter:blur(3px); border:1px solid var(--line); border-radius:9px;
+  padding:9px 11px; font-size:11.5px; color:var(--ink-soft); box-shadow:var(--shadow);
 }
 .map-legend .lg-title{font-weight:600; color:var(--ink); margin-bottom:6px; font-size:11.5px;}
 .map-legend .lg-item{display:flex; align-items:center; gap:7px; padding:2px 0;}
-.map-legend .lg-dot{width:9px; height:9px; border-radius:3px; flex-shrink:0;}
+.map-legend .lg-dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
 
 .donut-card{align-items:center;}
-.donut-card canvas{width:100% !important; max-width:150px; max-height:150px;}
+.donut-card canvas{width:100% !important; max-width:158px; max-height:158px;}
 .donut-center{position:relative; width:100%; display:flex; justify-content:center;}
 .donut-mid{
   position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none;
 }
-.donut-mid .n{font-family:var(--font-mono); font-size:18px; font-weight:700; color:var(--ink);}
-.donut-mid .l{font-size:9.5px; color:var(--ink-faint); margin-top:1px;}
-.donut-total{font-size:11px; color:var(--ink-faint); text-align:center; margin-top:8px;}
+.donut-mid .n{font-family:var(--font-mono); font-size:26px; font-weight:700; color:var(--ink); line-height:1.1;}
+.donut-mid .l{font-size:10.5px; color:var(--ink-faint); margin-top:2px;}
+.donut-total{font-size:11.5px; color:var(--ink-faint); text-align:center; margin-top:10px;}
 .donut-total b{color:var(--ink); font-weight:700;}
-.donut-legend{width:100%; margin-top:10px; display:flex; flex-direction:column; gap:6px;}
-.donut-legend .row{display:flex; align-items:center; justify-content:space-between; font-size:11.3px; gap:6px;}
-.donut-legend .row .lab{display:flex; align-items:center; gap:6px; color:var(--ink-soft); min-width:0;}
-.donut-legend .row .dot{width:8px; height:8px; border-radius:2px; flex-shrink:0;}
+.donut-legend{width:100%; margin-top:12px; display:flex; flex-direction:column; gap:8px;}
+.donut-legend .row{display:flex; align-items:center; justify-content:space-between; font-size:11.8px; gap:6px;}
+.donut-legend .row .lab{display:flex; align-items:center; gap:7px; color:var(--ink-soft); min-width:0;}
+.donut-legend .row .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
 .donut-legend .row .val{font-weight:600; color:var(--ink); white-space:nowrap;}
 
 .top5-panel .top5-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;}
@@ -544,14 +546,16 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
               </button>
             </div>
           </div>
-          <div id="mapview"></div>
-          <div class="map-legend">
-            <div class="lg-title">จำนวนแหล่ง (แห่ง)</div>
-            <div class="lg-item"><span class="lg-dot" style="background:#22C55E"></span>1 - 20</div>
-            <div class="lg-item"><span class="lg-dot" style="background:#84CC16"></span>21 - 50</div>
-            <div class="lg-item"><span class="lg-dot" style="background:#EAB308"></span>51 - 100</div>
-            <div class="lg-item"><span class="lg-dot" style="background:#F97316"></span>101 - 200</div>
-            <div class="lg-item"><span class="lg-dot" style="background:#E0452F"></span>201 ขึ้นไป</div>
+          <div class="map-canvas-wrap">
+            <div id="mapview"></div>
+            <div class="map-legend">
+              <div class="lg-title">จำนวนแหล่ง (แห่ง)</div>
+              <div class="lg-item"><span class="lg-dot" style="background:#22C55E"></span>1 - 20</div>
+              <div class="lg-item"><span class="lg-dot" style="background:#84CC16"></span>21 - 50</div>
+              <div class="lg-item"><span class="lg-dot" style="background:#EAB308"></span>51 - 100</div>
+              <div class="lg-item"><span class="lg-dot" style="background:#F97316"></span>101 - 200</div>
+              <div class="lg-item"><span class="lg-dot" style="background:#E0452F"></span>201 ขึ้นไป</div>
+            </div>
           </div>
         </div>
 
@@ -690,6 +694,7 @@ let FILTERED = [];
 let charts = {};
 let mapInstance = null;
 let markerCluster = null;
+let lastFitBounds = null;
 let currentPage = 1;
 const PAGE_SIZE = 25;
 
@@ -716,17 +721,44 @@ function rowsToObjects(payload){
   });
 }
 
+// Normalize Thai text for matching: trim, collapse internal whitespace,
+// and strip zero-width/invisible characters that often sneak in from
+// copy-pasted Google Sheet cells and would otherwise break exact matches.
+function normText(s){
+  return String(s||'')
+    .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+    .trim()
+    .replace(/\s+/g, '');
+}
 function complyBucket(row){
-  const st = String(row.st||'').trim();
+  const st = normText(row.st);
+  // Exact matches first (fast path for clean data)...
   if (st === 'ปฏิบัติถูกต้อง' || st === 'ปฏิบัติตามกฎหมาย') return 'ok';
   if (st === 'ปฏิบัติไม่ครบถ้วน') return 'partial';
   if (st === 'ไม่ปฏิบัติ' || st === 'ไม่ปฏิบัติตามกฎหมาย') return 'bad';
+  // ...then keyword fallback, so real-world text like "ปฏิบัติไม่ครบถ้วนตามกฎหมาย"
+  // or "ผู้ประกอบการไม่ปฏิบัติตามมาตรฐาน" still lands in the right bucket
+  // instead of silently collapsing into ok/bad via the boolean field below.
+  if (st){
+    if (st.includes('ไม่ครบ')) return 'partial';
+    if (st.includes('ไม่ปฏิบัติ') || st.includes('ไม่ผ่าน') || st.includes('ฝ่าฝืน')) return 'bad';
+    if (st.includes('ถูกต้อง') || (st.includes('ปฏิบัติ') && st.includes('ตามกฎหมาย'))) return 'ok';
+  }
   // fallback to boolean compliance field if no detailed status text
   return row.c ? 'ok' : 'bad';
 }
 function enforceBucket(row){
-  const e = String(row.e||'').trim();
-  return ENFORCE_ORDER.includes(e) ? e : 'อื่นๆ';
+  const e = normText(row.e);
+  if (!e) return 'อื่นๆ';
+  // Exact match against the canonical labels first...
+  const exact = ENFORCE_ORDER.find(k=> normText(k) === e);
+  if (exact) return exact;
+  // ...then keyword fallback for real-world variants (extra wording, spacing,
+  // or slightly different phrasing) so data doesn't silently pile up in "อื่นๆ".
+  if (e.includes('ดำเนินคดี') || e.includes('ฟ้องร้อง')) return 'ดำเนินคดีแล้ว';
+  if (e.includes('คำสั่ง')) return 'ออกคำสั่งทางปกครอง';
+  if (e.includes('แนะนำ') || e.includes('ตักเตือน') || e.includes('ตรวจสอบ')) return 'อยู่ระหว่างแนะนำ';
+  return 'อื่นๆ';
 }
 
 function loadData(payload, sourceLabel){
@@ -1008,7 +1040,7 @@ function makeDonut(canvasId, labels, data, colors){
     type:'doughnut',
     data:{ labels, datasets:[{ data, backgroundColor:colors, borderWidth:2, borderColor:'#fff' }] },
     options:{
-      responsive:true, maintainAspectRatio:true, cutout:'70%',
+      responsive:true, maintainAspectRatio:true, cutout:'66%',
       plugins:{ legend:{display:false}, tooltip:{enabled:true} },
     }
   });
@@ -1142,6 +1174,15 @@ async function renderMapSafe(){
 }
 const MAP_DEFAULT_CENTER = [13.9, 100.6];
 const MAP_DEFAULT_ZOOM = 6;
+// Thailand's approximate bounding box. Used only to decide which points are
+// trusted when auto-fitting the view — a handful of bad/typo'd coordinates
+// (e.g. a swapped lat/lng, or a stray point out over open water) used to
+// blow up the fit-bounds calculation and zoom the whole map out to a world
+// view. Every valid point is still plotted; this only affects framing.
+const TH_BOUNDS = { latMin:5.0, latMax:21.0, lngMin:97.0, lngMax:106.0 };
+function withinThailand(lat, lng){
+  return lat >= TH_BOUNDS.latMin && lat <= TH_BOUNDS.latMax && lng >= TH_BOUNDS.lngMin && lng <= TH_BOUNDS.lngMax;
+}
 function clusterColor(count){
   if (count >= 201) return '#E0452F';
   if (count >= 101) return '#F97316';
@@ -1180,13 +1221,19 @@ function renderMap(){
     r.a!=null && r.o!=null && Number.isFinite(r.a) && Number.isFinite(r.o) &&
     Math.abs(r.a) <= 90 && Math.abs(r.o) <= 180 && !(r.a===0 && r.o===0)
   );
+  const trustedLatLngs = [];
   pts.forEach(r=>{
     const bucket = complyBucket(r);
     const color = bucket==='ok' ? '#1AA36A' : (bucket==='partial' ? '#E6A417' : '#E0452F');
     const m = L.circleMarker([r.a, r.o], { radius:6, color:'#fff', weight:1.5, fillColor:color, fillOpacity:.95 });
     m.bindPopup(`<b>${escapeHtml(r.n||'-')}</b><br>${escapeHtml(r.t||'-')}<br>${escapeHtml(r.d||'-')}`);
     markerCluster.addLayer(m);
+    if (withinThailand(r.a, r.o)) trustedLatLngs.push([r.a, r.o]);
   });
+  // Prefer fitting to points that actually fall within Thailand; only fall
+  // back to the full (possibly outlier-skewed) bounds if none do, so a
+  // handful of bad coordinates can't zoom the map out to a world view.
+  lastFitBounds = trustedLatLngs.length ? L.latLngBounds(trustedLatLngs) : null;
   let emptyNote = mapEl.parentElement.querySelector('.map-empty-note');
   if (!pts.length){
     if (!emptyNote){
@@ -1202,7 +1249,7 @@ function renderMap(){
     if (!mapInstance) return;
     mapInstance.invalidateSize();
     if (pts.length){
-      mapInstance.fitBounds(markerCluster.getBounds(), { padding:[24,24], maxZoom:11 });
+      mapInstance.fitBounds(lastFitBounds || markerCluster.getBounds(), { padding:[24,24], maxZoom:11 });
     } else {
       mapInstance.setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
     }
@@ -1212,7 +1259,7 @@ function resetMapView(){
   if (!mapInstance) return;
   mapInstance.invalidateSize();
   if (markerCluster && markerCluster.getLayers().length){
-    mapInstance.fitBounds(markerCluster.getBounds(), { padding:[24,24], maxZoom:11 });
+    mapInstance.fitBounds(lastFitBounds || markerCluster.getBounds(), { padding:[24,24], maxZoom:11 });
   } else {
     mapInstance.setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
   }
