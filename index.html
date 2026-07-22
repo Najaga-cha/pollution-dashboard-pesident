@@ -162,18 +162,19 @@ main.content{flex:1; min-width:0; padding:20px 24px 60px;}
 input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .field-input:focus{outline:none; border-color:var(--blue); box-shadow:0 0 0 3px var(--blue-soft);}
 .search-field{position:relative;}
-.search-field svg{position:absolute; left:11px; top:50%; transform:translateY(-50%); width:15px; height:15px; color:var(--ink-faint);}
-.search-field input{padding-left:34px;}
+.search-field svg{position:absolute; right:11px; left:auto; top:50%; transform:translateY(-50%); width:15px; height:15px; color:var(--ink-faint); pointer-events:none;}
+.search-field input{padding-left:12px; padding-right:34px;}
 .size-chip-group{display:flex; gap:6px;}
 .size-chip{
-  flex:1; border:1px solid var(--line); background:var(--bg); border-radius:9px;
+  flex:1; border:1px solid transparent; background:var(--bg); border-radius:9px;
   padding:9px 0; text-align:center; font-size:12.5px; font-weight:700; cursor:pointer; color:var(--ink-soft);
   transition:all .15s ease;
 }
-.size-chip[data-v="ก"].active{background:var(--blue-soft); border-color:var(--blue); color:var(--blue);}
-.size-chip[data-v="ข"].active{background:var(--amber-soft); border-color:var(--amber); color:#8a6608;}
-.size-chip[data-v="ค"].active{background:var(--green-soft); border-color:var(--green); color:var(--green);}
-.size-chip[data-v="ง"].active{background:var(--purple-soft); border-color:var(--purple); color:var(--purple);}
+.size-chip[data-v="ก"]{background:var(--green-soft); color:var(--green);}
+.size-chip[data-v="ข"]{background:var(--blue-soft); color:var(--blue);}
+.size-chip[data-v="ค"]{background:var(--amber-soft); color:#8a6608;}
+.size-chip[data-v="ง"]{background:var(--purple-soft); color:var(--purple);}
+.size-chip.active{box-shadow:inset 0 0 0 2px currentColor;}
 .filter-actions{display:flex; align-items:center; gap:10px; justify-content:flex-end;}
 .btn-clear{
   display:inline-flex; align-items:center; gap:7px; background:var(--card); color:var(--ink-soft);
@@ -444,8 +445,7 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
           </div>
           <div class="field-group">
             <span class="field-label">ประเภทแหล่ง</span>
-            <input class="field-input" id="fType" list="fTypeList" placeholder="เลือกประเภท" autocomplete="off">
-            <datalist id="fTypeList"></datalist>
+            <select class="field-input" id="fType"><option value="">เลือกประเภท</option></select>
           </div>
           <div class="field-group">
             <span class="field-label">ขนาดของแหล่ง</span>
@@ -458,8 +458,7 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
           </div>
           <div class="field-group">
             <span class="field-label">เขต / อำเภอ</span>
-            <input class="field-input" id="fDistrict" list="fDistrictList" placeholder="เลือกเขต/อำเภอ" autocomplete="off">
-            <datalist id="fDistrictList"></datalist>
+            <select class="field-input" id="fDistrict"><option value="">เลือกเขต/อำเภอ</option></select>
           </div>
           <div class="field-group">
             <span class="field-label">เชื่อมท่อ</span>
@@ -492,8 +491,7 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
           </div>
           <div class="field-group">
             <span class="field-label">โครงการที่เข้าตรวจสอบ</span>
-            <input class="field-input" id="fProject" list="fProjectList" placeholder="เลือกโครงการ" autocomplete="off">
-            <datalist id="fProjectList"></datalist>
+            <select class="field-input" id="fProject"><option value="">เลือกโครงการ</option></select>
           </div>
           <div class="filter-actions" style="grid-column:span 2;">
             <button class="btn-clear" id="resetFilters" type="button">
@@ -733,9 +731,9 @@ function fillSelect(id, values, placeholder){
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
 function buildFilterOptions(){
-  fillDatalist('fTypeList', uniqueSorted(ALL.map(r=>r.t)));
-  fillDatalist('fDistrictList', uniqueSorted(ALL.map(r=>r.d)));
-  fillDatalist('fProjectList', uniqueSorted(ALL.map(r=>r.j)));
+  fillSelect('fType', uniqueSorted(ALL.map(r=>r.t)), 'เลือกประเภท');
+  fillSelect('fDistrict', uniqueSorted(ALL.map(r=>r.d)), 'เลือกเขต/อำเภอ');
+  fillSelect('fProject', uniqueSorted(ALL.map(r=>r.j)), 'เลือกโครงการ');
   fillSelect('fYear', uniqueSorted(ALL.map(r=>r.y)).sort((a,b)=>a-b), 'เลือกปีงบประมาณ');
   fillSelect('fEnforce', ENFORCE_ORDER, 'เลือกทั้งหมด');
 }
@@ -776,12 +774,27 @@ function applyFilters(){
 
 function attachFilterEvents(){
   document.getElementById('applyFilters').addEventListener('click', applyFilters);
-  document.getElementById('fSearch').addEventListener('keydown', e=>{ if(e.key==='Enter') applyFilters(); });
+
+  // Live filtering: re-run the filter the instant any control changes, no
+  // need to press "ค้นหา". A short debounce on the text search avoids
+  // re-filtering on every single keystroke while still feeling instant.
+  let searchDebounce;
+  document.getElementById('fSearch').addEventListener('input', ()=>{
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(applyFilters, 200);
+  });
+  document.getElementById('fSearch').addEventListener('keydown', e=>{ if(e.key==='Enter'){ clearTimeout(searchDebounce); applyFilters(); } });
+
+  ['fType','fDistrict','fSewer','fStatus','fEnforce','fYear','fProject'].forEach(id=>{
+    document.getElementById(id).addEventListener('change', applyFilters);
+  });
+
   document.getElementById('fSize').addEventListener('click', e=>{
     const chip = e.target.closest('.size-chip'); if(!chip) return;
     const wasActive = chip.classList.contains('active');
     document.querySelectorAll('#fSize .size-chip').forEach(c=>c.classList.remove('active'));
     if (!wasActive) chip.classList.add('active');
+    applyFilters();
   });
   document.getElementById('resetFilters').addEventListener('click', ()=>{
     document.getElementById('fSearch').value = '';
