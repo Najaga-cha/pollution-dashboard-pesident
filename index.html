@@ -869,6 +869,7 @@ let charts = {};
 let mapInstance = null;
 let markerCluster = null;
 let lastFitBounds = null;
+let mapTileLayer = null;
 let currentPage = 1;
 const PAGE_SIZE = 25;
 // When true, renderTable() ignores pagination and renders every filtered
@@ -1372,9 +1373,9 @@ function renderMap(){
   const mapEl = document.getElementById('mapview');
   if (!mapInstance){
     mapInstance = L.map('mapview', { scrollWheelZoom:true }).setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    mapTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       attribution:'&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OpenStreetMap contributors',
-      maxZoom:19, subdomains:'abcd',
+      maxZoom:19, subdomains:'abcd', crossOrigin:true,
     }).addTo(mapInstance);
     markerCluster = L.markerClusterGroup({
       maxClusterRadius:60,
@@ -1855,20 +1856,45 @@ let printMapWrapEl = null;
 let printMapOriginalParent = null;
 let printMapOriginalNext = null;
 
+// Resolves once the tile layer fires 'load' (all tiles for the current
+// view finished loading), or after maxWaitMs — whichever comes first — so
+// a slow/offline connection can never hang the export forever.
+function waitForMapTilesReady(maxWaitMs){
+  return new Promise(resolve=>{
+    if (!mapInstance || !mapTileLayer){ resolve(); return; }
+    let done = false;
+    const finish = ()=>{ if (done) return; done = true; mapTileLayer.off('load', finish); resolve(); };
+    mapTileLayer.on('load', finish);
+    setTimeout(finish, maxWaitMs);
+  });
+}
+
 function moveMapForPrint(){
-  const wrap = document.querySelector('#sec-map .map-canvas-wrap');
-  const slot = document.getElementById('prMapSlot');
-  const listFallback = document.getElementById('prMapList');
-  if (!wrap || !slot) return;
-  printMapWrapEl = wrap;
-  printMapOriginalParent = wrap.parentElement;
-  printMapOriginalNext = wrap.nextElementSibling;
-  if (listFallback) listFallback.style.display = 'none';
-  slot.insertBefore(wrap, listFallback || null);
-  requestAnimationFrame(()=>{
-    if (!mapInstance) return;
-    mapInstance.invalidateSize();
-    if (lastFitBounds){ try{ mapInstance.fitBounds(lastFitBounds, {padding:[4,4]}); }catch(e){} }
+  return new Promise(resolve=>{
+    const wrap = document.querySelector('#sec-map .map-canvas-wrap');
+    const slot = document.getElementById('prMapSlot');
+    const listFallback = document.getElementById('prMapList');
+    if (!wrap || !slot){ resolve(); return; }
+    printMapWrapEl = wrap;
+    printMapOriginalParent = wrap.parentElement;
+    printMapOriginalNext = wrap.nextElementSibling;
+    if (listFallback) listFallback.style.display = 'none';
+    slot.insertBefore(wrap, listFallback || null);
+    // Bug fix: previously invalidateSize()/fitBounds() ran on the very next
+    // animation frame, before the browser had actually laid out the newly
+    // inserted node at its print-page size — so Leaflet could measure a
+    // 0x0 (or stale) container, request the wrong tiles, and the map would
+    // print/screenshot as an empty box (no basemap, no marker pins). Forcing
+    // a synchronous layout read first guarantees the real size is used.
+    void slot.offsetHeight;
+    requestAnimationFrame(()=>{
+      if (!mapInstance){ resolve(); return; }
+      mapInstance.invalidateSize({ animate:false });
+      if (lastFitBounds){ try{ mapInstance.fitBounds(lastFitBounds, { padding:[4,4], animate:false }); }catch(e){} }
+      // Give the (now correctly-sized) map a real chance to fetch and paint
+      // its tiles before the print snapshot is taken.
+      waitForMapTilesReady(1800).then(resolve);
+    });
   });
 }
 
@@ -1893,10 +1919,12 @@ function exportFullReport(){
   renderPrintSummary();
 
   // Give the browser a frame to lay out the summary, then relocate the
-  // real map into it before opening the print/save-as-PDF dialog.
+  // real map into it — and actually wait until its tiles/pins have loaded
+  // (moveMapForPrint's promise) — before opening the print/save-as-PDF
+  // dialog. This is what previously showed an empty map: printing used to
+  // fire on a fixed timer, often before the basemap tiles had arrived.
   setTimeout(()=>{
-    moveMapForPrint();
-    setTimeout(()=>{ window.print(); }, 200);
+    moveMapForPrint().then(()=>{ window.print(); });
   }, 150);
 }
 
