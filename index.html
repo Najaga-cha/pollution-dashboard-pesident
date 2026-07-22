@@ -231,7 +231,7 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
   background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
   box-shadow:var(--shadow); padding:20px 20px 18px; display:flex; flex-direction:column;
 }
-.panel-title{font-family:var(--font-display); font-size:14.5px; font-weight:600; color:var(--ink); margin:0 0 12px;}
+.panel-title{font-family:var(--font-display); font-size:13px; font-weight:600; color:var(--ink); margin:0 0 12px; line-height:1.35;}
 .map-panel{position:relative;}
 .map-panel-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
 .map-panel-head .panel-title{margin:0;}
@@ -280,21 +280,25 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .donut-mid{
   position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none;
 }
-.donut-mid .n{font-family:var(--font-mono); font-size:26px; font-weight:700; color:var(--ink); line-height:1.1;}
-.donut-mid .l{font-size:10.5px; color:var(--ink-faint); margin-top:2px;}
-.donut-total{font-size:11.5px; color:var(--ink-faint); text-align:center; margin-top:10px;}
+.donut-mid .n{font-family:var(--font-mono); font-size:20px; font-weight:700; color:var(--ink); line-height:1.1;}
+.donut-mid .l{font-size:9.5px; color:var(--ink-faint); margin-top:2px;}
+.donut-total{font-size:10.5px; color:var(--ink-faint); text-align:center; margin-top:10px;}
 .donut-total b{color:var(--ink); font-weight:700;}
-.donut-legend{width:100%; margin-top:12px; display:flex; flex-direction:column; gap:8px;}
-.donut-legend .row{display:flex; align-items:center; justify-content:space-between; font-size:11.8px; gap:6px;}
-.donut-legend .row .lab{display:flex; align-items:center; gap:7px; color:var(--ink-soft); min-width:0;}
-.donut-legend .row .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+.donut-legend{width:100%; margin-top:12px; display:flex; flex-direction:column; gap:7px;}
+.donut-legend .row{display:flex; align-items:center; justify-content:space-between; font-size:10.8px; gap:6px;}
+.donut-legend .row .lab{display:flex; align-items:center; gap:6px; color:var(--ink-soft); min-width:0;}
+.donut-legend .row .dot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
 .donut-legend .row .val{font-weight:600; color:var(--ink); white-space:nowrap;}
 
 .top5-panel .top5-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;}
-.top5-panel .top5-sub{font-size:10.5px; color:var(--ink-faint);}
-.top5-list{display:flex; flex-direction:column; gap:11px; margin-top:8px;}
+.top5-panel .top5-sub{font-size:9.5px; color:var(--ink-faint);}
+/* flex:1 + space-between lets the items spread out to fill whatever height
+   the panel has (it stretches to match the taller map/donut cards next to
+   it) instead of clumping at the top and leaving a dead gap above the
+   "ดูทั้งหมด" button. */
+.top5-list{display:flex; flex-direction:column; gap:11px; margin-top:8px; flex:1; justify-content:space-between;}
 .top5-item{display:flex; flex-direction:column; gap:5px;}
-.top5-item .row1{display:flex; justify-content:space-between; gap:8px; font-size:11.3px;}
+.top5-item .row1{display:flex; justify-content:space-between; gap:8px; font-size:10.5px;}
 .top5-item .rank{color:var(--blue); font-weight:700; margin-right:5px;}
 .top5-item .name{color:var(--ink-soft); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .top5-item .val{font-weight:700; color:var(--ink); font-family:var(--font-mono); flex-shrink:0;}
@@ -1285,7 +1289,17 @@ function toggleMapFullscreen(){
       : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>';
   }
   document.body.style.overflow = goingFullscreen ? 'hidden' : '';
-  setTimeout(()=>{ if (mapInstance) mapInstance.invalidateSize(); }, 220);
+  // Bug fix: invalidateSize() alone only tells Leaflet the container size
+  // changed — it doesn't reframe the view. Going fullscreen (or back) makes
+  // the map area jump between a small card and the full viewport, so the
+  // old center/zoom would leave the map looking off-center or oddly cropped
+  // until the user manually panned. Re-fitting to the data after the size
+  // settles keeps the view framed correctly in both states.
+  setTimeout(()=>{
+    if (!mapInstance) return;
+    mapInstance.invalidateSize();
+    resetMapView();
+  }, 220);
 }
 function initMapControls(){
   const resetBtn = document.getElementById('mapResetBtn');
