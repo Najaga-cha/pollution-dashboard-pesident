@@ -442,12 +442,19 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
 /* Insight row — mirrors the live dashboard's map / donuts / top-5 strip as
    five narrow columns: region summary (map stand-in), the three donuts
    (still plain CSS conic-gradients), and the top-5 project list. */
-.pr-insight-row{ display:grid; grid-template-columns:1.15fr 1fr 1fr 1fr 1.3fr; gap:3.5mm; margin-bottom:5mm; align-items:stretch; }
+.pr-insight-row{ display:grid; grid-template-columns:1.6fr 0.85fr 0.85fr 0.85fr 1.2fr; gap:3.5mm; margin-bottom:5mm; align-items:stretch; }
 .pr-donuts{ display:contents; }
 
-.pr-map-card{ border:0.3mm solid var(--line); border-radius:3mm; padding:3.5mm; }
-.pr-map-card h4{ font-size:2.7mm; margin:0 0 3mm; color:var(--ink); font-weight:600; display:flex; align-items:center; gap:1.4mm; }
+.pr-map-card{ border:0.3mm solid var(--line); border-radius:3mm; padding:3mm; display:flex; flex-direction:column; }
+.pr-map-card h4{ font-size:2.7mm; margin:0 0 2mm; color:var(--ink); font-weight:600; display:flex; align-items:center; gap:1.4mm; flex:0 0 auto; }
 .pr-map-card h4 svg{ width:3mm; height:3mm; color:var(--blue); flex-shrink:0; }
+/* Slot that hosts the real, live Leaflet map (moved in from #sec-map just
+   before printing — see moveMapForPrint()/restoreMapAfterPrint()). Sized
+   with flex so it fills whatever height the insight row stretches to. */
+.pr-map-slot{ flex:1; min-height:35mm; border-radius:2mm; overflow:hidden; background:var(--gray-soft); display:flex; flex-direction:column; }
+.pr-map-slot .map-canvas-wrap{ flex:1; min-height:0; display:flex; flex-direction:column; }
+.pr-map-slot #mapview{ flex:1; min-height:0; height:auto !important; width:100%; border-radius:0 !important; border:none !important; }
+.pr-map-slot .map-legend{ transform:scale(.62); transform-origin:left bottom; left:4px; bottom:4px; }
 .pr-map-list{ display:flex; flex-direction:column; gap:2.4mm; }
 .pr-map-item .row1{ display:flex; justify-content:space-between; gap:2mm; font-size:2.4mm; color:var(--ink); margin-bottom:0.8mm; }
 .pr-map-item .row1 .name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -526,8 +533,14 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
 
   <div class="pr-insight-row">
     <div class="pr-map-card">
-      <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.5-7-11a7 7 0 1 1 14 0c0 4.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>พื้นที่ที่พบมากที่สุด</h4>
-      <div class="pr-map-list" id="prMapList"></div>
+      <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.5-7-11a7 7 0 1 1 14 0c0 4.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>พิกัดแหล่งกำเนิดมลพิษ</h4>
+      <div class="pr-map-slot" id="prMapSlot">
+        <!-- The live #mapview/.map-canvas-wrap is moved in here just
+             before printing, then moved back afterwards — see
+             moveMapForPrint()/restoreMapAfterPrint(). This div also
+             doubles as a region-count fallback if the map isn't ready. -->
+        <div class="pr-map-list" id="prMapList"></div>
+      </div>
     </div>
 
     <div class="pr-donuts" id="prDonuts"></div>
@@ -1832,6 +1845,46 @@ function prDot(color, label){
   return `<span class="pr-dot"><span class="d" style="background:${color}"></span>${escapeHtml(label)}</span>`;
 }
 
+/* ---------------- Move the real map into the print report ----------------
+   Rather than trying to snapshot Leaflet's tile canvas (which is prone to
+   CORS/tainted-canvas failures), the actual #mapview/.map-canvas-wrap DOM
+   node — with its live mapInstance still attached — is relocated into the
+   print report's slot just before printing, resized via invalidateSize(),
+   then moved back to its normal spot on the dashboard afterwards. */
+let printMapWrapEl = null;
+let printMapOriginalParent = null;
+let printMapOriginalNext = null;
+
+function moveMapForPrint(){
+  const wrap = document.querySelector('#sec-map .map-canvas-wrap');
+  const slot = document.getElementById('prMapSlot');
+  const listFallback = document.getElementById('prMapList');
+  if (!wrap || !slot) return;
+  printMapWrapEl = wrap;
+  printMapOriginalParent = wrap.parentElement;
+  printMapOriginalNext = wrap.nextElementSibling;
+  if (listFallback) listFallback.style.display = 'none';
+  slot.insertBefore(wrap, listFallback || null);
+  requestAnimationFrame(()=>{
+    if (!mapInstance) return;
+    mapInstance.invalidateSize();
+    if (lastFitBounds){ try{ mapInstance.fitBounds(lastFitBounds, {padding:[4,4]}); }catch(e){} }
+  });
+}
+
+function restoreMapAfterPrint(){
+  if (!printMapWrapEl || !printMapOriginalParent) return;
+  if (printMapOriginalNext && printMapOriginalNext.parentElement === printMapOriginalParent){
+    printMapOriginalParent.insertBefore(printMapWrapEl, printMapOriginalNext);
+  } else {
+    printMapOriginalParent.appendChild(printMapWrapEl);
+  }
+  const listFallback = document.getElementById('prMapList');
+  if (listFallback) listFallback.style.display = '';
+  printMapWrapEl = null; printMapOriginalParent = null; printMapOriginalNext = null;
+  requestAnimationFrame(()=>{ if (mapInstance) mapInstance.invalidateSize(); });
+}
+
 function exportFullReport(){
   // Per request: the saved report should be a nicely formatted, single-page
   // overview (not the raw dashboard shrunk down, and not the full table).
@@ -1839,9 +1892,12 @@ function exportFullReport(){
   // stylesheet then hides the live dashboard and shows only the summary.
   renderPrintSummary();
 
-  // Give the browser a frame to lay out the summary before opening the
-  // print/save-as-PDF dialog.
-  setTimeout(()=>{ window.print(); }, 150);
+  // Give the browser a frame to lay out the summary, then relocate the
+  // real map into it before opening the print/save-as-PDF dialog.
+  setTimeout(()=>{
+    moveMapForPrint();
+    setTimeout(()=>{ window.print(); }, 200);
+  }, 150);
 }
 
 /* ---------------- CSV export ---------------- */
@@ -1890,6 +1946,9 @@ function init(){
   safeStep('exportButtons', ()=>{
     document.getElementById('exportBtn').addEventListener('click', exportFullReport);
     document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
+    // Whether the person actually prints/saves or cancels the dialog, put
+    // the live map back where it belongs once the dialog closes.
+    window.addEventListener('afterprint', restoreMapAfterPrint);
     // In the "ข้อมูลแหล่งกำเนิดมลพิษทั้งหมด" section, ask for explicit
     // yes/no confirmation before downloading the full report — the button
     // only triggers the save when the user chooses to.
