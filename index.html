@@ -431,39 +431,73 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
 .pr-meta{ text-align:right; font-size:2.6mm; color:var(--ink-faint); }
 .pr-meta p{ margin:0.5mm 0; }
 
-.pr-kpis{ display:grid; grid-template-columns:repeat(3,1fr); gap:6mm; margin-bottom:6mm; }
-.pr-kpi-card{ border:0.3mm solid var(--line); border-radius:3mm; padding:4mm 5mm; }
-.pr-kpi-card .lab{ font-size:2.7mm; color:var(--ink-soft); margin-bottom:2.5mm; line-height:1.3; }
+.pr-kpis{ display:grid; grid-template-columns:repeat(3,1fr); gap:5mm; margin-bottom:5mm; }
+.pr-kpi-card{ border:0.3mm solid var(--line); border-radius:3mm; padding:3.5mm 4.5mm; }
+.pr-kpi-card .lab{ font-size:2.6mm; color:var(--ink-soft); margin-bottom:2.2mm; line-height:1.3; }
 .pr-kpi-card .val-row{ display:flex; align-items:baseline; gap:1.5mm; }
-.pr-kpi-card .val{ font-family:var(--font-mono); font-size:7mm; font-weight:700; color:var(--ink); }
-.pr-kpi-card .unit{ font-size:2.8mm; color:var(--ink-faint); }
-.pr-kpi-card .pct{ font-size:2.8mm; font-weight:700; margin-left:auto; }
+.pr-kpi-card .val{ font-family:var(--font-mono); font-size:6.6mm; font-weight:700; color:var(--ink); }
+.pr-kpi-card .unit{ font-size:2.7mm; color:var(--ink-faint); }
+.pr-kpi-card .pct{ font-size:2.7mm; font-weight:700; margin-left:auto; }
 
-.pr-donuts{ display:grid; grid-template-columns:repeat(3,1fr); gap:6mm; margin-bottom:6mm; }
-.pr-donut-card{ border:0.3mm solid var(--line); border-radius:3mm; padding:4mm; text-align:center; }
-.pr-donut-card h4{ font-size:3mm; margin:0 0 3.5mm; color:var(--ink); font-weight:600; }
-.pr-donut-visual{ width:30mm; height:30mm; margin:0 auto; position:relative; border-radius:50%; }
+/* Insight row — mirrors the live dashboard's map / donuts / top-5 strip as
+   five narrow columns: region summary (map stand-in), the three donuts
+   (still plain CSS conic-gradients), and the top-5 project list. */
+.pr-insight-row{ display:grid; grid-template-columns:1.15fr 1fr 1fr 1fr 1.3fr; gap:3.5mm; margin-bottom:5mm; align-items:stretch; }
+.pr-donuts{ display:contents; }
+
+.pr-map-card{ border:0.3mm solid var(--line); border-radius:3mm; padding:3.5mm; }
+.pr-map-card h4{ font-size:2.7mm; margin:0 0 3mm; color:var(--ink); font-weight:600; display:flex; align-items:center; gap:1.4mm; }
+.pr-map-card h4 svg{ width:3mm; height:3mm; color:var(--blue); flex-shrink:0; }
+.pr-map-list{ display:flex; flex-direction:column; gap:2.4mm; }
+.pr-map-item .row1{ display:flex; justify-content:space-between; gap:2mm; font-size:2.4mm; color:var(--ink); margin-bottom:0.8mm; }
+.pr-map-item .row1 .name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pr-map-item .row1 .val{ font-weight:700; color:var(--blue); flex-shrink:0; }
+.pr-map-item .bar-track{ height:1.8mm; border-radius:1mm; background:var(--gray-soft); overflow:hidden; }
+.pr-map-item .bar-fill{ height:100%; background:var(--blue); border-radius:1mm; }
+
+.pr-donut-card{ border:0.3mm solid var(--line); border-radius:3mm; padding:3mm; text-align:center; }
+.pr-donut-card h4{ font-size:2.6mm; margin:0 0 3mm; color:var(--ink); font-weight:600; }
+.pr-donut-visual{ width:21mm; height:21mm; margin:0 auto; position:relative; border-radius:50%; }
 .pr-donut-visual::after{ content:''; position:absolute; inset:24%; background:#fff; border-radius:50%; }
 .pr-donut-center{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:1; }
-.pr-donut-center .n{ font-family:var(--font-mono); font-weight:700; font-size:3.6mm; color:var(--ink); line-height:1; }
-.pr-donut-center .l{ font-size:2mm; color:var(--ink-faint); margin-top:0.5mm; }
-.pr-donut-legend{ margin-top:3.5mm; text-align:left; }
-.pr-donut-legend .row{ display:flex; align-items:center; gap:1.8mm; font-size:2.6mm; margin-bottom:1.2mm; color:var(--ink-soft); }
-.pr-donut-legend .dot{ width:2.2mm; height:2.2mm; border-radius:50%; flex-shrink:0; }
-.pr-donut-legend .lab{ flex:1; }
+.pr-donut-center .n{ font-family:var(--font-mono); font-weight:700; font-size:3mm; color:var(--ink); line-height:1; }
+.pr-donut-center .l{ font-size:1.8mm; color:var(--ink-faint); margin-top:0.4mm; }
+.pr-donut-legend{ margin-top:3mm; text-align:left; }
+.pr-donut-legend .row{ display:flex; align-items:center; gap:1.4mm; font-size:2.2mm; margin-bottom:1mm; color:var(--ink-soft); }
+.pr-donut-legend .dot{ width:1.9mm; height:1.9mm; border-radius:50%; flex-shrink:0; }
+.pr-donut-legend .lab{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .pr-donut-legend .val{ font-weight:700; color:var(--ink); white-space:nowrap; }
 
-.pr-top5{ border:0.3mm solid var(--line); border-radius:3mm; padding:4mm 5mm; }
-.pr-top5 h3{ font-size:3.2mm; margin:0 0 3.5mm; color:var(--ink); font-family:var(--font-display); }
-.pr-top5-list{ display:grid; grid-template-columns:1fr 1fr; gap:2.5mm 8mm; }
-.pr-top5-item .row1{ display:flex; justify-content:space-between; align-items:center; font-size:2.8mm; margin-bottom:1.2mm; color:var(--ink); }
-.pr-top5-item .name{ display:flex; align-items:center; gap:2mm; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.pr-top5-item .rank{ display:inline-flex; align-items:center; justify-content:center; width:4.4mm; height:4.4mm; border-radius:50%; background:var(--blue-soft); color:var(--blue); font-weight:700; font-size:2.3mm; flex-shrink:0; }
+.pr-top5{ border:0.3mm solid var(--line); border-radius:3mm; padding:3.5mm; }
+.pr-top5 h3{ font-size:2.8mm; margin:0 0 3mm; color:var(--ink); font-family:var(--font-display); }
+.pr-top5-list{ display:flex; flex-direction:column; gap:2.2mm; }
+.pr-top5-item .row1{ display:flex; justify-content:space-between; align-items:center; font-size:2.4mm; margin-bottom:1mm; color:var(--ink); }
+.pr-top5-item .name{ display:flex; align-items:center; gap:1.6mm; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pr-top5-item .rank{ display:inline-flex; align-items:center; justify-content:center; width:3.8mm; height:3.8mm; border-radius:50%; background:var(--blue-soft); color:var(--blue); font-weight:700; font-size:2mm; flex-shrink:0; }
 .pr-top5-item .val{ font-weight:700; flex-shrink:0; margin-left:2mm; }
-.pr-top5-item .bar-track{ height:2.2mm; border-radius:1.1mm; background:var(--gray-soft); overflow:hidden; }
-.pr-top5-item .bar-fill{ height:100%; background:var(--blue); border-radius:1.1mm; }
+.pr-top5-item .bar-track{ height:1.8mm; border-radius:1mm; background:var(--gray-soft); overflow:hidden; }
+.pr-top5-item .bar-fill{ height:100%; background:var(--blue); border-radius:1mm; }
 
-.pr-footer{ margin-top:auto; padding-top:3mm; font-size:2.2mm; color:var(--ink-faint); text-align:center; }
+/* Compact data table — a condensed, printable version of the live
+   "ข้อมูลแหล่งกำเนิดมลพิษทั้งหมด" table so the saved report shows real
+   records, not just totals. */
+.pr-table-wrap{ border:0.3mm solid var(--line); border-radius:3mm; overflow:hidden; }
+.pr-table-wrap h3{ font-size:3mm; margin:0; padding:3mm 4mm 2mm; color:var(--ink); font-family:var(--font-display); font-weight:600; }
+.pr-table-wrap h3 span{ font-weight:400; color:var(--ink-faint); font-family:var(--font-body); }
+table.pr-table{ width:100%; border-collapse:collapse; font-size:2.4mm; }
+table.pr-table thead th{ text-align:left; font-weight:600; color:var(--ink-soft); font-size:2.2mm; background:var(--bg); padding:1.8mm 3mm; border-top:0.25mm solid var(--line); border-bottom:0.25mm solid var(--line); white-space:nowrap; }
+table.pr-table tbody td{ padding:1.6mm 3mm; border-bottom:0.25mm solid var(--line); color:var(--ink); }
+table.pr-table tbody tr:last-child td{ border-bottom:none; }
+.pr-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:5.5mm; padding:0.5mm 1.6mm; border-radius:1.1mm; font-weight:700; font-size:2.1mm; }
+.pr-badge.sz-k, .badge-size.sz-k{ background:var(--blue-soft); color:var(--blue); }
+.pr-badge.sz-kh, .badge-size.sz-kh{ background:var(--amber-soft); color:#8a6608; }
+.pr-badge.sz-kk, .badge-size.sz-kk{ background:var(--green-soft); color:var(--green); }
+.pr-badge.sz-ng, .badge-size.sz-ng{ background:var(--purple-soft); color:var(--purple); }
+.pr-badge.sz-o, .badge-size.sz-o{ background:var(--gray-soft); color:var(--ink-soft); }
+.pr-dot{ display:inline-flex; align-items:center; gap:1.2mm; font-size:2.3mm; white-space:nowrap; }
+.pr-dot .d{ width:1.6mm; height:1.6mm; border-radius:50%; flex-shrink:0; }
+
+.pr-footer{ margin-top:auto; padding-top:3mm; font-size:2.1mm; color:var(--ink-faint); text-align:center; }
 </style>
 </head>
 <body>
@@ -490,11 +524,30 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
 
   <div class="pr-kpis" id="prKpis"></div>
 
-  <div class="pr-donuts" id="prDonuts"></div>
+  <div class="pr-insight-row">
+    <div class="pr-map-card">
+      <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.5-7-11a7 7 0 1 1 14 0c0 4.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>พื้นที่ที่พบมากที่สุด</h4>
+      <div class="pr-map-list" id="prMapList"></div>
+    </div>
 
-  <div class="pr-top5">
-    <h3>โครงการที่เข้าข่ายตรวจสอบ (Top 5)</h3>
-    <div class="pr-top5-list" id="prTop5List"></div>
+    <div class="pr-donuts" id="prDonuts"></div>
+
+    <div class="pr-top5">
+      <h3>โครงการที่เข้าข่ายตรวจสอบ (Top 5)</h3>
+      <div class="pr-top5-list" id="prTop5List"></div>
+    </div>
+  </div>
+
+  <div class="pr-table-wrap">
+    <h3>ข้อมูลแหล่งกำเนิดมลพิษ <span>(แสดง <span id="prTableShown"></span> จากทั้งหมด <span id="prTableTotal"></span> รายการ)</span></h3>
+    <table class="pr-table">
+      <thead>
+        <tr>
+          <th>ลำดับ</th><th>ชื่อแหล่งกำเนิดมลพิษ</th><th>ประเภท</th><th>ขนาด</th><th>เขต/อำเภอ</th><th>เชื่อมท่อ</th><th>การปฏิบัติตามกฎหมาย</th><th>สถานะบังคับใช้</th>
+        </tr>
+      </thead>
+      <tbody id="prTableBody"></tbody>
+    </table>
   </div>
 
   <p class="pr-footer">รายงานสรุปภาพรวม สร้างจากข้อมูล ณ เวลาที่บันทึก · ระบบติดตามแหล่งกำเนิดมลพิษ</p>
@@ -1734,6 +1787,49 @@ function renderPrintSummary(){
       </div>
       <div class="bar-track"><div class="bar-fill" style="width:${Math.round(count/max*100)}%"></div></div>
     </div>`).join('') || '<div style="font-size:2.8mm; color:var(--ink-faint);">ไม่มีข้อมูล</div>';
+
+  // Region summary — stands in for the live map panel (a static Leaflet
+  // snapshot can't be reliably sized onto a fixed-mm print page), showing
+  // the 5 เขต/อำเภอ with the most sources, same shape as the top-5 list.
+  const regionMap = {};
+  FILTERED.forEach(r=>{ const key = r.d || 'ไม่ระบุพื้นที่'; regionMap[key] = (regionMap[key]||0)+1; });
+  const topRegions = Object.entries(regionMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const regionMax = topRegions.length ? topRegions[0][1] : 1;
+  document.getElementById('prMapList').innerHTML = topRegions.map(([name,count])=>`
+    <div class="pr-map-item">
+      <div class="row1"><span class="name">${escapeHtml(name)}</span><span class="val">${count.toLocaleString('th-TH')}</span></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(count/regionMax*100)}%"></div></div>
+    </div>`).join('') || '<div style="font-size:2.4mm; color:var(--ink-faint);">ไม่มีข้อมูล</div>';
+
+  // Compact records table — same columns/formatting as the live table,
+  // capped to a handful of rows so the one-page report stays one page.
+  // Full data is still available via the separate CSV export button.
+  const PRINT_TABLE_ROWS = 8;
+  const tableRows = FILTERED.slice(0, PRINT_TABLE_ROWS);
+  document.getElementById('prTableShown').textContent = tableRows.length.toLocaleString('th-TH');
+  document.getElementById('prTableTotal').textContent = total.toLocaleString('th-TH');
+  document.getElementById('prTableBody').innerHTML = tableRows.map((r,i)=>{
+    const bucket = complyBucket(r);
+    const eb = enforceBucket(r);
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${escapeHtml(r.n||'-')}</td>
+      <td>${escapeHtml(r.t||'-')}</td>
+      <td>${prSizeBadge(r.s)}</td>
+      <td>${escapeHtml(r.d||'-')}</td>
+      <td>${prDot(r.w?'#1AA36A':'#E0452F', r.w?'เชื่อมท่อ':'ไม่เชื่อมท่อ')}</td>
+      <td>${prDot(COMPLY_COLORS[bucket], COMPLY_LABEL[bucket])}</td>
+      <td>${prDot(ENFORCE_COLORS[eb]||'#94A0B4', eb)}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="8" style="text-align:center; color:var(--ink-faint); padding:4mm;">ไม่พบข้อมูลที่ตรงกับตัวกรอง</td></tr>`;
+}
+
+function prSizeBadge(s){
+  const cls = SIZE_LABEL[s] || 'sz-o';
+  return `<span class="pr-badge ${cls}">${escapeHtml(s||'-')}</span>`;
+}
+function prDot(color, label){
+  return `<span class="pr-dot"><span class="d" style="background:${color}"></span>${escapeHtml(label)}</span>`;
 }
 
 function exportFullReport(){
