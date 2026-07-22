@@ -1579,43 +1579,24 @@ function exportFullReport(){
     'ข้อมูล ณ วันที่ ' + new Date().toLocaleString('th-TH') + ' · พบทั้งหมด ' + FILTERED.length.toLocaleString('th-TH') + ' รายการ';
   document.getElementById('printFilterSummary').textContent = buildFilterSummaryText();
 
-  // Per request: the saved report must stay on a single A4 page and must
-  // NOT dump every filtered row into the table — only whatever page of
-  // data is currently on screen goes into the printout (PRINT_ALL_ROWS is
-  // no longer forced on here, so renderTable() keeps using the normal
-  // current-page slice). We then shrink the whole page with `zoom`
-  // (unlike `transform`, `zoom` actually resizes the layout box, so it
-  // genuinely reduces how much vertical space the content takes up) just
-  // enough that everything fits on one printed sheet instead of spilling
-  // onto extra pages.
+  // Per request: the saved report should look exactly like the live
+  // dashboard, at its normal 1:1 scale — no forced shrinking/zooming,
+  // which was distorting the donut charts and squeezing content into a
+  // narrow column. Only the table page currently on screen is printed
+  // (PRINT_ALL_ROWS stays off), matching what's visible on the dashboard.
+  // If the report runs longer than one sheet it will simply continue onto
+  // additional pages, same as printing any long web page.
   printPrevPage = currentPage;
-  const prevZoom = document.body.style.zoom;
-
-  const fitToOnePage = ()=>{
-    document.body.style.zoom = '';
-    const MM_TO_PX = 96/25.4;
-    const pageW = (297 - 12*2) * MM_TO_PX;  // A4 landscape usable width, minus @page margin
-    const pageH = (210 - 12*2) * MM_TO_PX;  // A4 landscape usable height, minus @page margin
-    const contentW = document.body.scrollWidth;
-    const contentH = document.body.scrollHeight;
-    const scale = Math.min(1, pageW / contentW, pageH / contentH);
-    document.body.style.zoom = String(scale);
-  };
 
   const restore = ()=>{
     currentPage = printPrevPage;
-    document.body.style.zoom = prevZoom;
     window.removeEventListener('afterprint', restore);
   };
   window.addEventListener('afterprint', restore);
 
-  // Give the browser a frame to lay out the print header before measuring
-  // content size, computing the fit-to-page zoom, and opening the
-  // print/save-as-PDF dialog.
-  setTimeout(()=>{
-    fitToOnePage();
-    setTimeout(()=>{ window.print(); }, 60);
-  }, 150);
+  // Give the browser a frame to lay out the print header before opening
+  // the print/save-as-PDF dialog.
+  setTimeout(()=>{ window.print(); }, 150);
 }
 
 /* ---------------- CSV export ---------------- */
