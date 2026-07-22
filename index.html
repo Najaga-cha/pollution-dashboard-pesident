@@ -403,31 +403,101 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
 }
 
 /* ================= Save / Print report =================
-   Triggered by exportFullReport(): forces the table to render every
-   filtered row instead of just the current page, then calls window.print().
-   Per request, the saved/printed output should look exactly like the live
-   dashboard — nothing hidden, nothing restructured, no separate print-only
-   header. The only print-specific rules kept are the ones needed for the
-   browser's print engine to work at all (page size and preserving the
-   dashboard's background colors), not layout changes. */
-.print-report-header{display:none;}
+   Triggered by exportFullReport() / renderPrintSummary(). Earlier attempts
+   either printed the live dashboard 1:1 (fine visually, but ran to
+   multiple pages and still dumped the raw table) or tried to squeeze the
+   live dashboard onto one page with a `zoom` hack (which distorted the
+   Chart.js donuts). This version instead swaps in a dedicated, purpose
+   -built one-page report: the normal dashboard chrome is hidden for print,
+   and #printReport — sized in mm to physically match one A4 landscape
+   page — is shown instead. Its donut charts are plain CSS conic-gradients
+   (not canvases), so nothing can stretch or resize oddly. */
+.print-report{ display:none; }
 @media print{
-  @page{ size:A4 landscape; margin:12mm; }
+  @page{ size:A4 landscape; margin:10mm; }
   *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+  header.topbar, .app-shell, .modal-backdrop{ display:none !important; }
+  body{ margin:0; background:#fff; }
+  .print-report{
+    display:flex; flex-direction:column;
+    width:277mm; height:190mm; box-sizing:border-box;
+    font-family:var(--font-body); color:var(--ink);
+  }
 }
+
+.pr-header{ display:flex; justify-content:space-between; align-items:flex-end; border-bottom:0.6mm solid var(--navy); padding-bottom:3mm; margin-bottom:5mm; }
+.pr-header h1{ font-family:var(--font-display); font-size:6mm; margin:0; color:var(--navy); }
+.pr-header .pr-sub{ font-size:3mm; color:var(--ink-soft); margin:1mm 0 0; }
+.pr-meta{ text-align:right; font-size:2.6mm; color:var(--ink-faint); }
+.pr-meta p{ margin:0.5mm 0; }
+
+.pr-kpis{ display:grid; grid-template-columns:repeat(3,1fr); gap:6mm; margin-bottom:6mm; }
+.pr-kpi-card{ border:0.3mm solid var(--line); border-radius:3mm; padding:4mm 5mm; }
+.pr-kpi-card .lab{ font-size:2.7mm; color:var(--ink-soft); margin-bottom:2.5mm; line-height:1.3; }
+.pr-kpi-card .val-row{ display:flex; align-items:baseline; gap:1.5mm; }
+.pr-kpi-card .val{ font-family:var(--font-mono); font-size:7mm; font-weight:700; color:var(--ink); }
+.pr-kpi-card .unit{ font-size:2.8mm; color:var(--ink-faint); }
+.pr-kpi-card .pct{ font-size:2.8mm; font-weight:700; margin-left:auto; }
+
+.pr-donuts{ display:grid; grid-template-columns:repeat(3,1fr); gap:6mm; margin-bottom:6mm; }
+.pr-donut-card{ border:0.3mm solid var(--line); border-radius:3mm; padding:4mm; text-align:center; }
+.pr-donut-card h4{ font-size:3mm; margin:0 0 3.5mm; color:var(--ink); font-weight:600; }
+.pr-donut-visual{ width:30mm; height:30mm; margin:0 auto; position:relative; border-radius:50%; }
+.pr-donut-visual::after{ content:''; position:absolute; inset:24%; background:#fff; border-radius:50%; }
+.pr-donut-center{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:1; }
+.pr-donut-center .n{ font-family:var(--font-mono); font-weight:700; font-size:3.6mm; color:var(--ink); line-height:1; }
+.pr-donut-center .l{ font-size:2mm; color:var(--ink-faint); margin-top:0.5mm; }
+.pr-donut-legend{ margin-top:3.5mm; text-align:left; }
+.pr-donut-legend .row{ display:flex; align-items:center; gap:1.8mm; font-size:2.6mm; margin-bottom:1.2mm; color:var(--ink-soft); }
+.pr-donut-legend .dot{ width:2.2mm; height:2.2mm; border-radius:50%; flex-shrink:0; }
+.pr-donut-legend .lab{ flex:1; }
+.pr-donut-legend .val{ font-weight:700; color:var(--ink); white-space:nowrap; }
+
+.pr-top5{ border:0.3mm solid var(--line); border-radius:3mm; padding:4mm 5mm; }
+.pr-top5 h3{ font-size:3.2mm; margin:0 0 3.5mm; color:var(--ink); font-family:var(--font-display); }
+.pr-top5-list{ display:grid; grid-template-columns:1fr 1fr; gap:2.5mm 8mm; }
+.pr-top5-item .row1{ display:flex; justify-content:space-between; align-items:center; font-size:2.8mm; margin-bottom:1.2mm; color:var(--ink); }
+.pr-top5-item .name{ display:flex; align-items:center; gap:2mm; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pr-top5-item .rank{ display:inline-flex; align-items:center; justify-content:center; width:4.4mm; height:4.4mm; border-radius:50%; background:var(--blue-soft); color:var(--blue); font-weight:700; font-size:2.3mm; flex-shrink:0; }
+.pr-top5-item .val{ font-weight:700; flex-shrink:0; margin-left:2mm; }
+.pr-top5-item .bar-track{ height:2.2mm; border-radius:1.1mm; background:var(--gray-soft); overflow:hidden; }
+.pr-top5-item .bar-fill{ height:100%; background:var(--blue); border-radius:1.1mm; }
+
+.pr-footer{ margin-top:auto; padding-top:3mm; font-size:2.2mm; color:var(--ink-faint); text-align:center; }
 </style>
 </head>
 <body>
 
-<!-- Shown only when saving/printing the report (see exportFullReport()). It
-     stands in for the interactive header/filters so the saved page opens
-     with a clean title, timestamp, and a plain-text summary of whatever
-     filters were applied, instead of live buttons and dropdowns. -->
-<div class="print-report-header" id="printReportHeader">
-  <h1>ระบบติดตามแหล่งกำเนิดมลพิษ</h1>
-  <p class="print-report-sub">การระบายน้ำทิ้งจากแหล่งกำเนิดมลพิษ</p>
-  <p class="print-report-meta" id="printGeneratedAt"></p>
-  <p class="print-report-meta" id="printFilterSummary"></p>
+<!-- Shown only when saving/printing the report (see exportFullReport() /
+     renderPrintSummary()). Rather than trying to shrink the live,
+     interactive dashboard down to page size, this is a purpose-built
+     one-page summary: title, KPI totals, the three donut breakdowns (drawn
+     as plain CSS conic-gradients so they can never get stretched the way
+     the Chart.js canvases did), and the Top 5 project list. All sizing
+     below is in mm so it lines up with the physical A4 page regardless of
+     screen DPI. -->
+<div class="print-report" id="printReport">
+  <div class="pr-header">
+    <div>
+      <h1>ระบบติดตามแหล่งกำเนิดมลพิษ</h1>
+      <p class="pr-sub">รายงานสรุปภาพรวม · การระบายน้ำทิ้งจากแหล่งกำเนิดมลพิษ</p>
+    </div>
+    <div class="pr-meta">
+      <p id="printGeneratedAt"></p>
+      <p id="printFilterSummary"></p>
+    </div>
+  </div>
+
+  <div class="pr-kpis" id="prKpis"></div>
+
+  <div class="pr-donuts" id="prDonuts"></div>
+
+  <div class="pr-top5">
+    <h3>โครงการที่เข้าข่ายตรวจสอบ (Top 5)</h3>
+    <div class="pr-top5-list" id="prTop5List"></div>
+  </div>
+
+  <p class="pr-footer">รายงานสรุปภาพรวม สร้างจากข้อมูล ณ เวลาที่บันทึก · ระบบติดตามแหล่งกำเนิดมลพิษ</p>
 </div>
 
 <header class="topbar">
@@ -1573,29 +1643,108 @@ function buildFilterSummaryText(){
   return 'ตัวกรอง: ' + (parts.length ? parts.join(' · ') : 'ไม่ได้กรองข้อมูล (แสดงทั้งหมด)');
 }
 
-let printPrevPage = 1;
-function exportFullReport(){
+/* ---------------- Print summary report ---------------- */
+// Builds a conic-gradient CSS string for a donut ring from [{value,color}]
+// segments — a plain circle, so unlike a canvas it can never be resized
+// into an oval by print scaling.
+function conicGradientStops(segments, total){
+  let acc = 0;
+  const stops = segments.map(s=>{
+    const start = total ? (acc/total*100) : 0;
+    acc += s.value;
+    const end = total ? (acc/total*100) : 0;
+    return `${s.color} ${start}% ${end}%`;
+  });
+  return `conic-gradient(${stops.join(', ')})`;
+}
+
+function prDonutCard(title, segments, total){
+  const bg = total ? conicGradientStops(segments, total) : 'var(--gray-soft)';
+  const legend = segments.map(s=>{
+    const pct = total ? Math.round(s.value/total*1000)/10 : 0;
+    return `<div class="row"><span class="dot" style="background:${s.color}"></span><span class="lab">${escapeHtml(s.label)}</span><span class="val">${s.value.toLocaleString('th-TH')} (${pct}%)</span></div>`;
+  }).join('');
+  return `
+    <div class="pr-donut-card">
+      <h4>${escapeHtml(title)}</h4>
+      <div class="pr-donut-visual" style="background:${bg};">
+        <div class="pr-donut-center"><div class="n">${total.toLocaleString('th-TH')}</div><div class="l">ทั้งหมด</div></div>
+      </div>
+      <div class="pr-donut-legend">${legend}</div>
+    </div>`;
+}
+
+function renderPrintSummary(){
+  const total = FILTERED.length;
+
   document.getElementById('printGeneratedAt').textContent =
-    'ข้อมูล ณ วันที่ ' + new Date().toLocaleString('th-TH') + ' · พบทั้งหมด ' + FILTERED.length.toLocaleString('th-TH') + ' รายการ';
+    'ข้อมูล ณ วันที่ ' + new Date().toLocaleString('th-TH');
   document.getElementById('printFilterSummary').textContent = buildFilterSummaryText();
 
-  // Per request: the saved report should look exactly like the live
-  // dashboard, at its normal 1:1 scale — no forced shrinking/zooming,
-  // which was distorting the donut charts and squeezing content into a
-  // narrow column. Only the table page currently on screen is printed
-  // (PRINT_ALL_ROWS stays off), matching what's visible on the dashboard.
-  // If the report runs longer than one sheet it will simply continue onto
-  // additional pages, same as printing any long web page.
-  printPrevPage = currentPage;
+  // KPI cards — same three totals as the live dashboard's top row.
+  const sewerYes = FILTERED.filter(r=>r.w).length;
+  const compliantOk = FILTERED.filter(r=>complyBucket(r)==='ok').length;
+  const sewerPct = total ? Math.round(sewerYes/total*10000)/100 : 0;
+  const compliantPct = total ? Math.round(compliantOk/total*10000)/100 : 0;
+  const kpis = [
+    { color:'var(--blue)', label:'จำนวนแหล่งกำเนิดมลพิษที่ได้รับการตรวจสอบ', value:total, unit:'แห่ง', pct:'' },
+    { color:'var(--green)', label:'การเชื่อมต่อท่อเข้าระบบบำบัดน้ำเสียรวม', value:sewerYes, unit:'แห่ง', pct:sewerPct.toLocaleString('th-TH')+'%' },
+    { color:'var(--purple)', label:'การปฏิบัติตามกฎหมายในการระบายน้ำทิ้ง', value:compliantOk, unit:'แห่ง', pct:compliantPct.toLocaleString('th-TH')+'%' },
+  ];
+  document.getElementById('prKpis').innerHTML = kpis.map(k=>`
+    <div class="pr-kpi-card">
+      <div class="lab">${escapeHtml(k.label)}</div>
+      <div class="val-row">
+        <span class="val">${k.value.toLocaleString('th-TH')}</span>
+        <span class="unit">${k.unit}</span>
+        ${k.pct ? `<span class="pct" style="color:${k.color}">(${k.pct})</span>` : ''}
+      </div>
+    </div>`).join('');
 
-  const restore = ()=>{
-    currentPage = printPrevPage;
-    window.removeEventListener('afterprint', restore);
-  };
-  window.addEventListener('afterprint', restore);
+  // Donut breakdowns — same three groupings as the live dashboard.
+  const sewerNo = total - sewerYes;
+  const buckets = { ok:0, partial:0, bad:0 };
+  FILTERED.forEach(r=> buckets[complyBucket(r)]++ );
+  const eBuckets = {}; ENFORCE_ORDER.forEach(k=>eBuckets[k]=0);
+  FILTERED.forEach(r=> eBuckets[enforceBucket(r)]++ );
 
-  // Give the browser a frame to lay out the print header before opening
-  // the print/save-as-PDF dialog.
+  document.getElementById('prDonuts').innerHTML = [
+    prDonutCard('เชื่อมท่อ / ไม่เชื่อมท่อ', [
+      { label:'เชื่อมท่อ', value:sewerYes, color:'#1AA36A' },
+      { label:'ไม่เชื่อมท่อ', value:sewerNo, color:'#D8DEE9' },
+    ], total),
+    prDonutCard('การปฏิบัติตามกฎหมายในการระบายน้ำทิ้ง', [
+      { label:'ปฏิบัติถูกต้อง', value:buckets.ok, color:COMPLY_COLORS.ok },
+      { label:'ปฏิบัติไม่ครบถ้วน', value:buckets.partial, color:COMPLY_COLORS.partial },
+      { label:'ไม่ปฏิบัติ', value:buckets.bad, color:COMPLY_COLORS.bad },
+    ], total),
+    prDonutCard('สถานะการบังคับใช้กฎหมาย', ENFORCE_ORDER.map(k=>({ label:k, value:eBuckets[k], color:ENFORCE_COLORS[k] })), total),
+  ].join('');
+
+  // Top 5 projects — same ranking logic as the live sidebar panel.
+  const map = {};
+  FILTERED.forEach(r=>{ const key = r.j || 'ไม่ระบุโครงการ'; map[key] = (map[key]||0)+1; });
+  const top = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const max = top.length ? top[0][1] : 1;
+  document.getElementById('prTop5List').innerHTML = top.map(([name,count],i)=>`
+    <div class="pr-top5-item">
+      <div class="row1">
+        <span class="name"><span class="rank">${i+1}</span>${escapeHtml(name)}</span>
+        <span class="val">${count.toLocaleString('th-TH')}</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(count/max*100)}%"></div></div>
+    </div>`).join('') || '<div style="font-size:2.8mm; color:var(--ink-faint);">ไม่มีข้อมูล</div>';
+}
+
+function exportFullReport(){
+  // Per request: the saved report should be a nicely formatted, single-page
+  // overview (not the raw dashboard shrunk down, and not the full table).
+  // renderPrintSummary() builds that dedicated summary; the print
+  // stylesheet then hides the live dashboard and shows only the summary.
+  renderPrintSummary();
+
+  // Give the browser a frame to lay out the summary before opening the
+  // print/save-as-PDF dialog.
   setTimeout(()=>{ window.print(); }, 150);
 }
 
