@@ -211,13 +211,15 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .map-panel #mapview{
   height:380px; border-radius:11px; overflow:hidden; border:1px solid var(--line);
   background:var(--gray-soft); transition:height .2s ease;
+  position:relative; isolation:isolate; /* contain Leaflet's internal z-index (panes/controls go up to 1000)
+     so it can never escape and paint over the sticky header or other UI while scrolling */
 }
 .map-panel.is-fullscreen{
   position:fixed; inset:14px; z-index:200; padding:18px 18px 16px;
   box-shadow:0 24px 60px -20px rgba(8,18,38,.45);
 }
 .map-panel.is-fullscreen #mapview{height:calc(100% - 100px);}
-.map-panel.is-fullscreen .map-legend{position:absolute; right:22px; bottom:24px; z-index:5; box-shadow:var(--shadow); max-width:180px;}
+.map-panel.is-fullscreen .map-legend{position:absolute; right:22px; bottom:24px; z-index:20; box-shadow:var(--shadow); max-width:180px; max-height:calc(100% - 48px); overflow-y:auto;}
 .map-scrim{display:none; position:fixed; inset:0; background:rgba(10,18,36,.45); z-index:190;}
 .map-scrim.show{display:block;}
 .map-empty-note{
@@ -1001,8 +1003,9 @@ function renderMap(){
   const mapEl = document.getElementById('mapview');
   if (!mapInstance){
     mapInstance = L.map('mapview', { scrollWheelZoom:true }).setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution:'&copy; OpenStreetMap contributors', maxZoom:18,
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution:'&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OpenStreetMap contributors',
+      maxZoom:19, subdomains:'abcd',
     }).addTo(mapInstance);
     markerCluster = L.markerClusterGroup({
       maxClusterRadius:60,
@@ -1010,8 +1013,8 @@ function renderMap(){
         const count = cluster.getChildCount();
         const color = clusterColor(count);
         return L.divIcon({
-          html: `<div style="background:${color}; color:#fff; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; border:3px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.25);">${count}</div>`,
-          className:'', iconSize:[40,40],
+          html: `<div style="background:${color}; color:#fff; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12.5px; border:2px solid #fff; box-shadow:0 2px 8px rgba(20,30,50,.22);">${count}</div>`,
+          className:'', iconSize:[36,36],
         });
       }
     });
