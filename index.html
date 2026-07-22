@@ -189,6 +189,42 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .btn-search:hover{background:#2153c4;}
 .btn-search svg{width:14px; height:14px;}
 
+/* ---- Multi-select dropdown (checkbox list) ---- */
+.ms-select{position:relative;}
+.ms-trigger{
+  display:block; width:100%; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.ms-trigger.has-value{color:var(--blue); font-weight:600; background-color:var(--blue-soft); border-color:var(--blue-soft);}
+.ms-select.open .ms-trigger{border-color:var(--blue); box-shadow:0 0 0 3px var(--blue-soft);}
+.ms-panel{
+  position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:60;
+  background:#fff; border:1px solid var(--line); border-radius:10px;
+  box-shadow:0 14px 30px -12px rgba(8,18,38,.28); padding:8px;
+}
+.ms-panel[hidden]{display:none;}
+.ms-panel-search{margin-bottom:6px;}
+.ms-panel-search input{
+  width:100%; border:1px solid var(--line); border-radius:7px; padding:7px 9px;
+  font-size:12.5px; font-family:inherit; color:var(--ink);
+}
+.ms-panel-search input:focus{outline:none; border-color:var(--blue);}
+.ms-options{max-height:216px; overflow-y:auto; display:flex; flex-direction:column; gap:1px;}
+.ms-option{
+  display:flex; align-items:center; gap:9px; padding:7px 8px; border-radius:7px; cursor:pointer;
+  font-size:12.8px; color:var(--ink);
+}
+.ms-option:hover{background:var(--gray-soft);}
+.ms-option input[type="checkbox"]{width:15px; height:15px; accent-color:var(--blue); flex-shrink:0; cursor:pointer; margin:0;}
+.ms-option span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.ms-empty{padding:12px 6px; text-align:center; color:var(--ink-faint); font-size:12.5px;}
+.ms-panel-actions{display:flex; justify-content:space-between; gap:8px; padding-top:6px; margin-top:6px; border-top:1px solid var(--line);}
+.ms-panel-actions button{
+  background:none; border:none; color:var(--blue); font-size:12px; font-weight:600; cursor:pointer; padding:4px 6px; border-radius:6px;
+}
+.ms-panel-actions button:hover{background:var(--blue-soft);}
+.ms-panel-actions button.ms-clear-btn{color:var(--ink-soft);}
+.ms-panel-actions button.ms-clear-btn:hover{background:var(--gray-soft);}
+
 /* ================= Insight row: map + donuts + top5 ================= */
 .insight-row{display:grid; grid-template-columns:1.5fr .82fr .82fr .82fr 1fr; gap:16px; margin-bottom:18px; align-items:stretch;}
 .panel{
@@ -445,7 +481,7 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
           </div>
           <div class="field-group">
             <span class="field-label">ประเภทแหล่ง</span>
-            <select class="field-input" id="fType"><option value="">เลือกประเภท</option></select>
+            <div class="ms-select" id="fType"></div>
           </div>
           <div class="field-group">
             <span class="field-label">ขนาดของแหล่ง</span>
@@ -458,40 +494,29 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
           </div>
           <div class="field-group">
             <span class="field-label">เขต / อำเภอ</span>
-            <select class="field-input" id="fDistrict"><option value="">เลือกเขต/อำเภอ</option></select>
+            <div class="ms-select" id="fDistrict"></div>
           </div>
           <div class="field-group">
             <span class="field-label">เชื่อมท่อ</span>
-            <select class="field-input" id="fSewer">
-              <option value="">เลือกทั้งหมด</option>
-              <option value="yes">เชื่อมท่อ</option>
-              <option value="no">ไม่เชื่อมท่อ</option>
-            </select>
+            <div class="ms-select" id="fSewer"></div>
           </div>
           <div class="field-group">
             <span class="field-label">การปฏิบัติตามกฎหมาย</span>
-            <select class="field-input" id="fStatus">
-              <option value="">เลือกทั้งหมด</option>
-              <option value="ok">ปฏิบัติถูกต้อง</option>
-              <option value="partial">ปฏิบัติไม่ครบถ้วน</option>
-              <option value="bad">ไม่ปฏิบัติ</option>
-            </select>
+            <div class="ms-select" id="fStatus"></div>
           </div>
           <div class="field-group">
             <span class="field-label">สถานะการบังคับใช้กฎหมาย</span>
-            <select class="field-input" id="fEnforce">
-              <option value="">เลือกทั้งหมด</option>
-            </select>
+            <div class="ms-select" id="fEnforce"></div>
           </div>
         </div>
         <div class="filter-row2">
           <div class="field-group">
             <span class="field-label">ปีงบประมาณที่เริ่มตรวจ</span>
-            <select class="field-input" id="fYear"><option value="">เลือกปีงบประมาณ</option></select>
+            <div class="ms-select" id="fYear"></div>
           </div>
           <div class="field-group">
             <span class="field-label">โครงการที่เข้าตรวจสอบ</span>
-            <select class="field-input" id="fProject"><option value="">เลือกโครงการ</option></select>
+            <div class="ms-select" id="fProject"></div>
           </div>
           <div class="filter-actions" style="grid-column:span 2;">
             <button class="btn-clear" id="resetFilters" type="button">
@@ -716,40 +741,159 @@ function uniqueSorted(arr){
   return Array.from(new Set(arr)).filter(v=>v!==undefined && v!==null && v!=='' && v!=='nan')
     .sort((a,b)=>String(a).localeCompare(String(b),'th'));
 }
-function fillDatalist(id, values){
-  const dl = document.getElementById(id);
-  if (!dl) return;
-  dl.innerHTML = values.map(v=>`<option value="${escapeHtml(v)}"></option>`).join('');
-}
-function fillSelect(id, values, placeholder){
-  const sel = document.getElementById(id);
-  if (!sel) return;
-  const cur = sel.value;
-  sel.innerHTML = `<option value="">${placeholder}</option>` + values.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
-  sel.value = cur;
-}
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 
+/* ---------------- Multi-select dropdown component ---------------- */
+// Turns an empty <div class="ms-select" id="..."> into a checkbox-list
+// dropdown so the person can pick more than one value per filter. State is
+// kept per-field in msState (Set of selected string values).
+const msState = {};
+const msOptions = {};
+const msPlaceholder = {};
+
+function createMultiSelect(id, placeholder){
+  const root = document.getElementById(id);
+  if (!root) return;
+  msState[id] = new Set();
+  msOptions[id] = [];
+  msPlaceholder[id] = placeholder;
+  root.innerHTML = `
+    <button type="button" class="field-input ms-trigger"><span class="ms-trigger-text">${escapeHtml(placeholder)}</span></button>
+    <div class="ms-panel" hidden>
+      <div class="ms-panel-search"><input type="text" placeholder="ค้นหา..."></div>
+      <div class="ms-options"></div>
+      <div class="ms-panel-actions">
+        <button type="button" class="ms-clear-btn">ล้าง</button>
+        <button type="button" class="ms-selectall-btn">เลือกทั้งหมด</button>
+      </div>
+    </div>`;
+  const trigger = root.querySelector('.ms-trigger');
+  const panel = root.querySelector('.ms-panel');
+  const searchInput = root.querySelector('.ms-panel-search input');
+
+  trigger.addEventListener('click', e=>{
+    e.stopPropagation();
+    const willOpen = panel.hidden;
+    closeAllMultiSelects();
+    if (willOpen){
+      panel.hidden = false;
+      root.classList.add('open');
+      searchInput.value = '';
+      renderMsOptions(id);
+      searchInput.focus();
+    }
+  });
+  searchInput.addEventListener('input', ()=> renderMsOptions(id, searchInput.value));
+  searchInput.addEventListener('click', e=> e.stopPropagation());
+  panel.addEventListener('click', e=> e.stopPropagation());
+  root.querySelector('.ms-clear-btn').addEventListener('click', ()=>{
+    msState[id].clear();
+    renderMsOptions(id, searchInput.value);
+    updateMsTrigger(id);
+    applyFilters();
+  });
+  root.querySelector('.ms-selectall-btn').addEventListener('click', ()=>{
+    const q = searchInput.value.trim().toLowerCase();
+    msOptions[id].forEach(o=>{ if(!q || o.label.toLowerCase().includes(q)) msState[id].add(o.value); });
+    renderMsOptions(id, searchInput.value);
+    updateMsTrigger(id);
+    applyFilters();
+  });
+}
+
+function renderMsOptions(id, query){
+  const root = document.getElementById(id);
+  const wrap = root.querySelector('.ms-options');
+  const q = String(query||'').trim().toLowerCase();
+  const opts = msOptions[id].filter(o=> !q || o.label.toLowerCase().includes(q));
+  if (!opts.length){ wrap.innerHTML = '<div class="ms-empty">ไม่พบตัวเลือก</div>'; return; }
+  wrap.innerHTML = opts.map(o=>{
+    const checked = msState[id].has(o.value) ? 'checked' : '';
+    return `<label class="ms-option"><input type="checkbox" value="${escapeHtml(o.value)}" ${checked}><span>${escapeHtml(o.label)}</span></label>`;
+  }).join('');
+  wrap.querySelectorAll('input[type="checkbox"]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      if (cb.checked) msState[id].add(cb.value); else msState[id].delete(cb.value);
+      updateMsTrigger(id);
+      applyFilters();
+    });
+  });
+}
+
+function updateMsTrigger(id){
+  const root = document.getElementById(id);
+  if (!root) return;
+  const trigger = root.querySelector('.ms-trigger');
+  const textEl = root.querySelector('.ms-trigger-text');
+  const n = msState[id].size;
+  if (!n){
+    trigger.classList.remove('has-value');
+    textEl.textContent = msPlaceholder[id];
+  } else {
+    trigger.classList.add('has-value');
+    if (n === 1){
+      const v = Array.from(msState[id])[0];
+      const opt = msOptions[id].find(o=>o.value===v);
+      textEl.textContent = opt ? opt.label : v;
+    } else {
+      textEl.textContent = `เลือกแล้ว ${n} รายการ`;
+    }
+  }
+}
+
+function setMsOptions(id, values){
+  msOptions[id] = values.map(v=> ({ value:String(v), label:String(v) }));
+  const valid = new Set(msOptions[id].map(o=>o.value));
+  Array.from(msState[id]).forEach(v=>{ if (!valid.has(v)) msState[id].delete(v); });
+  updateMsTrigger(id);
+}
+
+function getMsValues(id){ return Array.from(msState[id] || []); }
+function clearMs(id){ if (msState[id]) msState[id].clear(); updateMsTrigger(id); }
+
+function closeAllMultiSelects(){
+  document.querySelectorAll('.ms-select.open').forEach(el=>{
+    el.classList.remove('open');
+    const panel = el.querySelector('.ms-panel');
+    if (panel) panel.hidden = true;
+  });
+}
+document.addEventListener('click', closeAllMultiSelects);
+document.addEventListener('keydown', e=>{ if (e.key === 'Escape') closeAllMultiSelects(); });
+
+function initMultiSelects(){
+  createMultiSelect('fType', 'เลือกประเภท');
+  createMultiSelect('fDistrict', 'เลือกเขต/อำเภอ');
+  createMultiSelect('fSewer', 'เลือกทั้งหมด');
+  createMultiSelect('fStatus', 'เลือกทั้งหมด');
+  createMultiSelect('fEnforce', 'เลือกทั้งหมด');
+  createMultiSelect('fYear', 'เลือกปีงบประมาณ');
+  createMultiSelect('fProject', 'เลือกโครงการ');
+  msOptions['fSewer'] = [{value:'yes', label:'เชื่อมท่อ'}, {value:'no', label:'ไม่เชื่อมท่อ'}];
+  msOptions['fStatus'] = [{value:'ok', label:'ปฏิบัติถูกต้อง'}, {value:'partial', label:'ปฏิบัติไม่ครบถ้วน'}, {value:'bad', label:'ไม่ปฏิบัติ'}];
+}
+
 function buildFilterOptions(){
-  fillSelect('fType', uniqueSorted(ALL.map(r=>r.t)), 'เลือกประเภท');
-  fillSelect('fDistrict', uniqueSorted(ALL.map(r=>r.d)), 'เลือกเขต/อำเภอ');
-  fillSelect('fProject', uniqueSorted(ALL.map(r=>r.j)), 'เลือกโครงการ');
-  fillSelect('fYear', uniqueSorted(ALL.map(r=>r.y)).sort((a,b)=>a-b), 'เลือกปีงบประมาณ');
-  fillSelect('fEnforce', ENFORCE_ORDER, 'เลือกทั้งหมด');
+  setMsOptions('fType', uniqueSorted(ALL.map(r=>r.t)));
+  setMsOptions('fDistrict', uniqueSorted(ALL.map(r=>r.d)));
+  setMsOptions('fProject', uniqueSorted(ALL.map(r=>r.j)));
+  setMsOptions('fYear', uniqueSorted(ALL.map(r=>r.y)).sort((a,b)=>a-b));
+  setMsOptions('fEnforce', ENFORCE_ORDER);
+  // fSewer / fStatus have fixed option sets (assigned in initMultiSelects) and don't depend on the loaded data.
 }
 
 /* ---------------- Filtering ---------------- */
 function getFilters(){
   return {
     search: document.getElementById('fSearch').value.trim().toLowerCase(),
-    type: document.getElementById('fType').value.trim().toLowerCase(),
-    size: document.querySelector('#fSize .size-chip.active') ? document.querySelector('#fSize .size-chip.active').dataset.v : '',
-    district: document.getElementById('fDistrict').value.trim().toLowerCase(),
-    sewer: document.getElementById('fSewer').value,
-    status: document.getElementById('fStatus').value,
-    enforce: document.getElementById('fEnforce').value,
-    year: document.getElementById('fYear').value,
-    project: document.getElementById('fProject').value.trim().toLowerCase(),
+    type: getMsValues('fType').map(v=>v.toLowerCase()),
+    size: Array.from(document.querySelectorAll('#fSize .size-chip.active')).map(c=>c.dataset.v),
+    district: getMsValues('fDistrict').map(v=>v.toLowerCase()),
+    sewer: getMsValues('fSewer'),
+    status: getMsValues('fStatus'),
+    enforce: getMsValues('fEnforce'),
+    year: getMsValues('fYear'),
+    project: getMsValues('fProject').map(v=>v.toLowerCase()),
   };
 }
 
@@ -757,15 +901,17 @@ function applyFilters(){
   const f = getFilters();
   FILTERED = ALL.filter(r=>{
     if (f.search && !String(r.n||'').toLowerCase().includes(f.search)) return false;
-    if (f.type && !String(r.t||'').toLowerCase().includes(f.type)) return false;
-    if (f.size && r.s !== f.size) return false;
-    if (f.district && !String(r.d||'').toLowerCase().includes(f.district)) return false;
-    if (f.sewer === 'yes' && !r.w) return false;
-    if (f.sewer === 'no' && r.w) return false;
-    if (f.status && complyBucket(r) !== f.status) return false;
-    if (f.enforce && enforceBucket(r) !== f.enforce) return false;
-    if (f.year && String(r.y) !== f.year) return false;
-    if (f.project && !String(r.j||'').toLowerCase().includes(f.project)) return false;
+    if (f.type.length && !f.type.some(v=>String(r.t||'').toLowerCase().includes(v))) return false;
+    if (f.size.length && !f.size.includes(r.s)) return false;
+    if (f.district.length && !f.district.some(v=>String(r.d||'').toLowerCase().includes(v))) return false;
+    if (f.sewer.length){
+      const val = r.w ? 'yes' : 'no';
+      if (!f.sewer.includes(val)) return false;
+    }
+    if (f.status.length && !f.status.includes(complyBucket(r))) return false;
+    if (f.enforce.length && !f.enforce.includes(enforceBucket(r))) return false;
+    if (f.year.length && !f.year.includes(String(r.y))) return false;
+    if (f.project.length && !f.project.some(v=>String(r.j||'').toLowerCase().includes(v))) return false;
     return true;
   });
   currentPage = 1;
@@ -773,6 +919,8 @@ function applyFilters(){
 }
 
 function attachFilterEvents(){
+  initMultiSelects();
+
   document.getElementById('applyFilters').addEventListener('click', applyFilters);
 
   // Live filtering: re-run the filter the instant any control changes, no
@@ -785,26 +933,15 @@ function attachFilterEvents(){
   });
   document.getElementById('fSearch').addEventListener('keydown', e=>{ if(e.key==='Enter'){ clearTimeout(searchDebounce); applyFilters(); } });
 
-  ['fType','fDistrict','fSewer','fStatus','fEnforce','fYear','fProject'].forEach(id=>{
-    document.getElementById(id).addEventListener('change', applyFilters);
-  });
-
+  // Size chips now toggle independently, so more than one size can be active at once.
   document.getElementById('fSize').addEventListener('click', e=>{
     const chip = e.target.closest('.size-chip'); if(!chip) return;
-    const wasActive = chip.classList.contains('active');
-    document.querySelectorAll('#fSize .size-chip').forEach(c=>c.classList.remove('active'));
-    if (!wasActive) chip.classList.add('active');
+    chip.classList.toggle('active');
     applyFilters();
   });
   document.getElementById('resetFilters').addEventListener('click', ()=>{
     document.getElementById('fSearch').value = '';
-    document.getElementById('fType').value = '';
-    document.getElementById('fDistrict').value = '';
-    document.getElementById('fSewer').value = '';
-    document.getElementById('fStatus').value = '';
-    document.getElementById('fEnforce').value = '';
-    document.getElementById('fYear').value = '';
-    document.getElementById('fProject').value = '';
+    ['fType','fDistrict','fSewer','fStatus','fEnforce','fYear','fProject'].forEach(clearMs);
     document.querySelectorAll('#fSize .size-chip').forEach(c=>c.classList.remove('active'));
     applyFilters();
   });
