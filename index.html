@@ -403,42 +403,17 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
 }
 
 /* ================= Save / Print report =================
-   Triggered by exportFullReport(): fills #printReportHeader, forces the
-   table to render every filtered row instead of just the current page,
-   then calls window.print(). This block turns the always-scrollable,
-   multi-panel dashboard into one clean printable/PDF-savable document —
-   sidebar and interactive chrome hidden, every section stacked on a single
-   flowing page, full data table included instead of just one page of it. */
+   Triggered by exportFullReport(): forces the table to render every
+   filtered row instead of just the current page, then calls window.print().
+   Per request, the saved/printed output should look exactly like the live
+   dashboard — nothing hidden, nothing restructured, no separate print-only
+   header. The only print-specific rules kept are the ones needed for the
+   browser's print engine to work at all (page size and preserving the
+   dashboard's background colors), not layout changes. */
 .print-report-header{display:none;}
 @media print{
   @page{ size:A4 landscape; margin:12mm; }
   *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
-  body{ background:#fff; }
-  header.topbar, .sidebar, .map-toolbar, .filter-card,
-  .pager, .pager-bottom, .btn-export, .btn-viewall, .kpi-link,
-  .gsheet-hint, .modal-backdrop, .map-scrim{ display:none !important; }
-  .print-report-header{
-    display:block; margin-bottom:16px; padding-bottom:12px; border-bottom:2px solid var(--navy);
-  }
-  .print-report-header h1{ font-family:var(--font-display); font-size:20px; margin:0 0 4px; color:var(--navy); }
-  .print-report-header .print-report-sub{ font-size:12px; color:var(--ink-soft); margin:0 0 8px; }
-  .print-report-header .print-report-meta{ font-size:11px; color:var(--ink-faint); margin:2px 0; }
-  .app-shell{ display:block; }
-  main.content{ padding:0; }
-  .kpi-row, .insight-row{ margin-bottom:14px; }
-  /* Full-width map and Top5 rows, with the three donuts sharing a row
-     between them — reads far more naturally on a printed page than the
-     screen's 5-column layout squeezed into A4 width. */
-  .insight-row{ grid-template-columns:repeat(3,1fr); }
-  .insight-row .map-panel, .insight-row .top5-panel{ grid-column:1 / -1; }
-  .panel, .kpi-card, .table-panel{ box-shadow:none; break-inside:avoid; }
-  .map-panel #mapview{ height:300px !important; }
-  table.datatable{ min-width:0; font-size:11px; }
-  table.datatable thead th{ position:static; }
-  table.datatable th:last-child, table.datatable td:last-child{ display:none; }
-  table.datatable tbody tr{ break-inside:avoid; }
-  .table-scroll{ overflow:visible; }
-  .foot-note{ display:none; }
 }
 </style>
 </head>
@@ -661,6 +636,10 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
             <button class="btn-export" id="exportCsvBtn" type="button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
               ส่งออกข้อมูล
+            </button>
+            <button class="btn-export" id="downloadReportPromptBtn" type="button" title="บันทึกรายงานทั้งหมด (ระบบจะถามยืนยันก่อนดาวน์โหลด)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+              ดาวน์โหลดรายงาน
             </button>
             <div class="pager" id="pagerTop"></div>
           </div>
@@ -1666,6 +1645,13 @@ function init(){
   safeStep('exportButtons', ()=>{
     document.getElementById('exportBtn').addEventListener('click', exportFullReport);
     document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
+    // In the "ข้อมูลแหล่งกำเนิดมลพิษทั้งหมด" section, ask for explicit
+    // yes/no confirmation before downloading the full report — the button
+    // only triggers the save when the user chooses to.
+    document.getElementById('downloadReportPromptBtn').addEventListener('click', ()=>{
+      const wantsDownload = window.confirm('ต้องการดาวน์โหลดรายงานหรือไม่?');
+      if (wantsDownload) exportFullReport();
+    });
     document.getElementById('viewAllProjects').addEventListener('click', ()=>{
       document.getElementById('sec-table').scrollIntoView({behavior:'smooth'});
     });
