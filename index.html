@@ -255,8 +255,17 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .map-panel.is-fullscreen{
   position:fixed; inset:14px; z-index:200; padding:18px 18px 16px;
   box-shadow:0 24px 60px -20px rgba(8,18,38,.45);
+  display:flex; flex-direction:column;
 }
-.map-panel.is-fullscreen #mapview{height:calc(100% - 100px);}
+/* Bug fix: #mapview's fullscreen height used to be a percentage
+   (calc(100% - 100px)), but its direct parent .map-canvas-wrap has no
+   height of its own — it only wraps its content. A percentage height with
+   no definite ancestor height to resolve against collapses to 0, so the
+   map silently had no height at all and never rendered when expanded.
+   Using flex:1 down the chain instead lets each level size itself off the
+   fixed panel's real height, so the map always gets real, visible space. */
+.map-panel.is-fullscreen .map-canvas-wrap{flex:1; min-height:0; display:flex; flex-direction:column;}
+.map-panel.is-fullscreen #mapview{height:auto; flex:1; min-height:0;}
 .map-panel.is-fullscreen .map-legend{left:22px; right:auto; bottom:24px; max-height:calc(100% - 48px); overflow-y:auto;}
 .map-scrim{display:none; position:fixed; inset:0; background:rgba(10,18,36,.45); z-index:190;}
 .map-scrim.show{display:block;}
@@ -292,11 +301,7 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 
 .top5-panel .top5-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;}
 .top5-panel .top5-sub{font-size:9.5px; color:var(--ink-faint);}
-/* flex:1 + space-between lets the items spread out to fill whatever height
-   the panel has (it stretches to match the taller map/donut cards next to
-   it) instead of clumping at the top and leaving a dead gap above the
-   "ดูทั้งหมด" button. */
-.top5-list{display:flex; flex-direction:column; gap:11px; margin-top:8px; flex:1; justify-content:space-between;}
+.top5-list{display:flex; flex-direction:column; gap:16px; margin-top:8px;}
 .top5-item{display:flex; flex-direction:column; gap:5px;}
 .top5-item .row1{display:flex; justify-content:space-between; gap:8px; font-size:10.5px;}
 .top5-item .rank{color:var(--blue); font-weight:700; margin-right:5px;}
