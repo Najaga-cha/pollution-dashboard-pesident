@@ -401,9 +401,59 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
   .filter-row{grid-template-columns:1fr 1fr;}
   .insight-row{grid-template-columns:1fr;}
 }
+
+/* ================= Save / Print report =================
+   Triggered by exportFullReport(): fills #printReportHeader, forces the
+   table to render every filtered row instead of just the current page,
+   then calls window.print(). This block turns the always-scrollable,
+   multi-panel dashboard into one clean printable/PDF-savable document —
+   sidebar and interactive chrome hidden, every section stacked on a single
+   flowing page, full data table included instead of just one page of it. */
+.print-report-header{display:none;}
+@media print{
+  @page{ size:A4 landscape; margin:12mm; }
+  *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+  body{ background:#fff; }
+  header.topbar, .sidebar, .map-toolbar, .filter-card,
+  .pager, .pager-bottom, .btn-export, .btn-viewall, .kpi-link,
+  .gsheet-hint, .modal-backdrop, .map-scrim{ display:none !important; }
+  .print-report-header{
+    display:block; margin-bottom:16px; padding-bottom:12px; border-bottom:2px solid var(--navy);
+  }
+  .print-report-header h1{ font-family:var(--font-display); font-size:20px; margin:0 0 4px; color:var(--navy); }
+  .print-report-header .print-report-sub{ font-size:12px; color:var(--ink-soft); margin:0 0 8px; }
+  .print-report-header .print-report-meta{ font-size:11px; color:var(--ink-faint); margin:2px 0; }
+  .app-shell{ display:block; }
+  main.content{ padding:0; }
+  .kpi-row, .insight-row{ margin-bottom:14px; }
+  /* Full-width map and Top5 rows, with the three donuts sharing a row
+     between them — reads far more naturally on a printed page than the
+     screen's 5-column layout squeezed into A4 width. */
+  .insight-row{ grid-template-columns:repeat(3,1fr); }
+  .insight-row .map-panel, .insight-row .top5-panel{ grid-column:1 / -1; }
+  .panel, .kpi-card, .table-panel{ box-shadow:none; break-inside:avoid; }
+  .map-panel #mapview{ height:300px !important; }
+  table.datatable{ min-width:0; font-size:11px; }
+  table.datatable thead th{ position:static; }
+  table.datatable th:last-child, table.datatable td:last-child{ display:none; }
+  table.datatable tbody tr{ break-inside:avoid; }
+  .table-scroll{ overflow:visible; }
+  .foot-note{ display:none; }
+}
 </style>
 </head>
 <body>
+
+<!-- Shown only when saving/printing the report (see exportFullReport()). It
+     stands in for the interactive header/filters so the saved page opens
+     with a clean title, timestamp, and a plain-text summary of whatever
+     filters were applied, instead of live buttons and dropdowns. -->
+<div class="print-report-header" id="printReportHeader">
+  <h1>ระบบติดตามแหล่งกำเนิดมลพิษ</h1>
+  <p class="print-report-sub">การระบายน้ำทิ้งจากแหล่งกำเนิดมลพิษ</p>
+  <p class="print-report-meta" id="printGeneratedAt"></p>
+  <p class="print-report-meta" id="printFilterSummary"></p>
+</div>
 
 <header class="topbar">
   <div class="topbar-inner">
@@ -422,7 +472,7 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
         <span id="syncLabel">ข้อมูลล่าสุด : กำลังเชื่อมต่อ...</span>
       </button>
-      <button class="btn-download" id="exportBtn" type="button">
+      <button class="btn-download" id="exportBtn" type="button" title="บันทึกทุกส่วนของแดชบอร์ด (แผนที่, กราฟ, ตารางข้อมูลทั้งหมด) เป็นเอกสารเดียว — เลือก 'บันทึกเป็น PDF' ในหน้าต่างพิมพ์">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
         ดาวน์โหลดรายงาน
       </button>
@@ -706,6 +756,10 @@ let markerCluster = null;
 let lastFitBounds = null;
 let currentPage = 1;
 const PAGE_SIZE = 25;
+// When true, renderTable() ignores pagination and renders every filtered
+// row — used only while preparing the printable/PDF report so the saved
+// document has the complete dataset, not just whatever page was on screen.
+let PRINT_ALL_ROWS = false;
 
 /* ---------------- Library resilience ---------------- */
 function ensureLib(name){
@@ -1125,8 +1179,8 @@ function renderTable(){
   document.getElementById('resultCount').textContent = total.toLocaleString('th-TH');
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   if (currentPage > totalPages) currentPage = totalPages;
-  const start = (currentPage-1)*PAGE_SIZE;
-  const pageRows = FILTERED.slice(start, start+PAGE_SIZE);
+  const start = PRINT_ALL_ROWS ? 0 : (currentPage-1)*PAGE_SIZE;
+  const pageRows = PRINT_ALL_ROWS ? FILTERED : FILTERED.slice(start, start+PAGE_SIZE);
 
   document.getElementById('tableBody').innerHTML = pageRows.map((r,i)=>{
     const bucket = complyBucket(r);
@@ -1519,6 +1573,53 @@ function initGsheetConnect(){
   }
 }
 
+/* ---------------- Save full report (all sections, one page) ---------------- */
+function buildFilterSummaryText(){
+  const parts = [];
+  const searchEl = document.getElementById('fSearch');
+  if (searchEl && searchEl.value.trim()) parts.push('ค้นหา: "' + searchEl.value.trim() + '"');
+  const msLabel = {
+    fType:'ประเภท', fDistrict:'เขต/อำเภอ', fSewer:'เชื่อมท่อ', fStatus:'การปฏิบัติตามกฎหมาย',
+    fEnforce:'สถานะบังคับใช้กฎหมาย', fYear:'ปีงบประมาณ', fProject:'โครงการ',
+  };
+  Object.keys(msLabel).forEach(id=>{
+    const root = document.getElementById(id);
+    if (!root) return;
+    const trigger = root.querySelector('.ms-trigger');
+    const textEl = root.querySelector('.ms-trigger-text');
+    if (trigger && trigger.classList.contains('has-value') && textEl){
+      parts.push(msLabel[id] + ': ' + textEl.textContent.trim());
+    }
+  });
+  return 'ตัวกรอง: ' + (parts.length ? parts.join(' · ') : 'ไม่ได้กรองข้อมูล (แสดงทั้งหมด)');
+}
+
+let printPrevPage = 1;
+function exportFullReport(){
+  document.getElementById('printGeneratedAt').textContent =
+    'ข้อมูล ณ วันที่ ' + new Date().toLocaleString('th-TH') + ' · พบทั้งหมด ' + FILTERED.length.toLocaleString('th-TH') + ' รายการ';
+  document.getElementById('printFilterSummary').textContent = buildFilterSummaryText();
+
+  // Render every filtered row (not just the current table page) so the
+  // saved document is complete, and mark the map/table as ready for the
+  // print stylesheet to take over layout.
+  printPrevPage = currentPage;
+  PRINT_ALL_ROWS = true;
+  renderTable();
+
+  const restore = ()=>{
+    PRINT_ALL_ROWS = false;
+    currentPage = printPrevPage;
+    renderTable();
+    window.removeEventListener('afterprint', restore);
+  };
+  window.addEventListener('afterprint', restore);
+
+  // Give the browser a frame to lay out the full-length table and print
+  // header before opening the print/save-as-PDF dialog.
+  setTimeout(()=>{ window.print(); }, 150);
+}
+
 /* ---------------- CSV export ---------------- */
 function exportCsv(){
   const cols = ['ลำดับ','ชื่อแหล่งกำเนิดมลพิษ','ประเภทแหล่ง','ขนาด','เขต/อำเภอ','เชื่อมท่อ','การปฏิบัติตามกฎหมาย','สถานะการบังคับใช้กฎหมาย','ปีงบประมาณ','โครงการ'];
@@ -1563,7 +1664,7 @@ function init(){
   safeStep('attachFilterEvents', attachFilterEvents);
   safeStep('initUpload', initUpload);
   safeStep('exportButtons', ()=>{
-    document.getElementById('exportBtn').addEventListener('click', exportCsv);
+    document.getElementById('exportBtn').addEventListener('click', exportFullReport);
     document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
     document.getElementById('viewAllProjects').addEventListener('click', ()=>{
       document.getElementById('sec-table').scrollIntoView({behavior:'smooth'});
