@@ -1579,24 +1579,43 @@ function exportFullReport(){
     'ข้อมูล ณ วันที่ ' + new Date().toLocaleString('th-TH') + ' · พบทั้งหมด ' + FILTERED.length.toLocaleString('th-TH') + ' รายการ';
   document.getElementById('printFilterSummary').textContent = buildFilterSummaryText();
 
-  // Render every filtered row (not just the current table page) so the
-  // saved document is complete, and mark the map/table as ready for the
-  // print stylesheet to take over layout.
+  // Per request: the saved report must stay on a single A4 page and must
+  // NOT dump every filtered row into the table — only whatever page of
+  // data is currently on screen goes into the printout (PRINT_ALL_ROWS is
+  // no longer forced on here, so renderTable() keeps using the normal
+  // current-page slice). We then shrink the whole page with `zoom`
+  // (unlike `transform`, `zoom` actually resizes the layout box, so it
+  // genuinely reduces how much vertical space the content takes up) just
+  // enough that everything fits on one printed sheet instead of spilling
+  // onto extra pages.
   printPrevPage = currentPage;
-  PRINT_ALL_ROWS = true;
-  renderTable();
+  const prevZoom = document.body.style.zoom;
+
+  const fitToOnePage = ()=>{
+    document.body.style.zoom = '';
+    const MM_TO_PX = 96/25.4;
+    const pageW = (297 - 12*2) * MM_TO_PX;  // A4 landscape usable width, minus @page margin
+    const pageH = (210 - 12*2) * MM_TO_PX;  // A4 landscape usable height, minus @page margin
+    const contentW = document.body.scrollWidth;
+    const contentH = document.body.scrollHeight;
+    const scale = Math.min(1, pageW / contentW, pageH / contentH);
+    document.body.style.zoom = String(scale);
+  };
 
   const restore = ()=>{
-    PRINT_ALL_ROWS = false;
     currentPage = printPrevPage;
-    renderTable();
+    document.body.style.zoom = prevZoom;
     window.removeEventListener('afterprint', restore);
   };
   window.addEventListener('afterprint', restore);
 
-  // Give the browser a frame to lay out the full-length table and print
-  // header before opening the print/save-as-PDF dialog.
-  setTimeout(()=>{ window.print(); }, 150);
+  // Give the browser a frame to lay out the print header before measuring
+  // content size, computing the fit-to-page zoom, and opening the
+  // print/save-as-PDF dialog.
+  setTimeout(()=>{
+    fitToOnePage();
+    setTimeout(()=>{ window.print(); }, 60);
+  }, 150);
 }
 
 /* ---------------- CSV export ---------------- */
