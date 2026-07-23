@@ -237,7 +237,7 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .ms-panel-actions button.ms-clear-btn:hover{background:var(--gray-soft);}
 
 /* ================= Insight row: map + donuts + top5 ================= */
-.insight-row{display:grid; grid-template-columns:1.5fr 2.5fr 1fr; gap:16px; margin-bottom:18px; align-items:stretch;}
+.insight-row{display:grid; grid-template-columns:1.3fr 2.9fr 1fr; gap:16px; margin-bottom:18px; align-items:stretch;}
 .panel{
   background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
   box-shadow:var(--shadow); padding:20px 20px 18px; display:flex; flex-direction:column;
@@ -256,6 +256,14 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .map-tool-btn svg{width:15px; height:15px; flex-shrink:0;}
 .map-tool-btn:hover{background:var(--blue-soft); color:var(--blue); border-color:var(--blue-soft);}
 .map-tool-btn:active{transform:scale(.94);}
+.map-back-btn{display:none;}
+.map-panel.is-fullscreen .map-back-btn{
+  display:inline-flex; align-items:center; gap:7px; height:34px; padding:0 14px;
+  border-radius:9px; border:1px solid var(--line); background:var(--card); color:var(--ink-soft);
+  font-size:12.5px; font-weight:600; cursor:pointer; transition:all .15s ease;
+}
+.map-back-btn svg{width:15px; height:15px;}
+.map-back-btn:hover{background:var(--blue-soft); color:var(--blue); border-color:var(--blue-soft);}
 .map-canvas-wrap{position:relative;}
 .map-panel #mapview{
   height:380px; border-radius:11px; overflow:hidden; border:1px solid var(--line);
@@ -264,8 +272,8 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
      so it can never escape and paint over the sticky header or other UI while scrolling */
 }
 .map-panel.is-fullscreen{
-  position:fixed; inset:14px; z-index:200; padding:18px 18px 16px;
-  box-shadow:0 24px 60px -20px rgba(8,18,38,.45);
+  position:fixed; inset:0; z-index:200; padding:16px 18px;
+  border-radius:0; box-shadow:none; background:var(--card);
   display:flex; flex-direction:column;
 }
 /* Bug fix: #mapview's fullscreen height used to be a percentage
@@ -296,23 +304,23 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 
 .donut-card{align-items:center;}
 .donut-card canvas{width:100% !important; max-width:158px; max-height:158px;}
-.donut-card-group{flex-direction:row; align-items:stretch; padding:20px 8px 18px; gap:0;}
-.donut-sub{flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; padding:0 14px;}
+.donut-card-group{flex-direction:row; align-items:stretch; padding:22px 10px 20px; gap:0;}
+.donut-sub{flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; padding:0 16px;}
 .donut-sub:not(:first-child){border-left:1px solid var(--line);}
 .donut-sub .panel-title{text-align:center;}
-.donut-sub canvas{width:100% !important; max-width:118px; max-height:118px;}
+.donut-sub canvas{width:100% !important; max-width:172px; max-height:172px;}
 .donut-center{position:relative; width:100%; display:flex; justify-content:center;}
 .donut-mid{
   position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none;
 }
-.donut-mid .n{font-family:var(--font-mono); font-size:20px; font-weight:700; color:var(--ink); line-height:1.1;}
-.donut-mid .l{font-size:9.5px; color:var(--ink-faint); margin-top:2px;}
-.donut-total{font-size:10.5px; color:var(--ink-faint); text-align:center; margin-top:10px;}
+.donut-mid .n{font-family:var(--font-mono); font-size:25px; font-weight:700; color:var(--ink); line-height:1.1;}
+.donut-mid .l{font-size:11px; color:var(--ink-faint); margin-top:2px;}
+.donut-total{font-size:11.5px; color:var(--ink-faint); text-align:center; margin-top:12px;}
 .donut-total b{color:var(--ink); font-weight:700;}
-.donut-legend{width:100%; margin-top:12px; display:flex; flex-direction:column; gap:7px;}
-.donut-legend .row{display:flex; align-items:center; justify-content:space-between; font-size:10.8px; gap:6px;}
+.donut-legend{width:100%; margin-top:13px; display:flex; flex-direction:column; gap:8px;}
+.donut-legend .row{display:flex; align-items:center; justify-content:space-between; font-size:11.8px; gap:6px;}
 .donut-legend .row .lab{display:flex; align-items:center; gap:6px; color:var(--ink-soft); min-width:0;}
-.donut-legend .row .dot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+.donut-legend .row .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
 .donut-legend .row .val{font-weight:600; color:var(--ink); white-space:nowrap;}
 
 .top5-panel .top5-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;}
@@ -760,6 +768,10 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
           <div class="map-panel-head">
             <div class="panel-title">พิกัดแหล่งกำเนิดมลพิษ</div>
             <div class="map-toolbar">
+              <button type="button" class="map-back-btn" id="mapBackBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                กลับสู่แดชบอร์ด
+              </button>
               <button type="button" class="map-tool-btn" id="mapResetBtn" title="รีเซ็ทมุมมองแผนที่">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
               </button>
@@ -1580,7 +1592,7 @@ function resetMapView(){
     mapInstance.setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
   }
 }
-function toggleMapFullscreen(){
+function setMapFullscreen(goingFullscreen){
   const panel = document.getElementById('sec-map');
   const btn = document.getElementById('mapExpandBtn');
   let scrim = document.getElementById('mapScrim');
@@ -1589,9 +1601,8 @@ function toggleMapFullscreen(){
     scrim.id = 'mapScrim';
     scrim.className = 'map-scrim';
     document.body.appendChild(scrim);
-    scrim.addEventListener('click', toggleMapFullscreen);
+    scrim.addEventListener('click', ()=> setMapFullscreen(false));
   }
-  const goingFullscreen = !panel.classList.contains('is-fullscreen');
   panel.classList.toggle('is-fullscreen', goingFullscreen);
   scrim.classList.toggle('show', goingFullscreen);
   if (btn){
@@ -1613,13 +1624,26 @@ function toggleMapFullscreen(){
     resetMapView();
   }, 220);
 }
+function toggleMapFullscreen(){
+  const panel = document.getElementById('sec-map');
+  setMapFullscreen(!panel.classList.contains('is-fullscreen'));
+}
+// Opens the map as its own full-page view — used by the "แผนที่" sidebar
+// item so clicking it feels like navigating to a dedicated map page rather
+// than just scrolling to the map card.
+function openMapFullPage(){
+  document.getElementById('sec-map').scrollIntoView({behavior:'auto', block:'start'});
+  setMapFullscreen(true);
+}
 function initMapControls(){
   const resetBtn = document.getElementById('mapResetBtn');
   const expandBtn = document.getElementById('mapExpandBtn');
+  const backBtn = document.getElementById('mapBackBtn');
   if (resetBtn) resetBtn.addEventListener('click', resetMapView);
   if (expandBtn) expandBtn.addEventListener('click', toggleMapFullscreen);
+  if (backBtn) backBtn.addEventListener('click', ()=> setMapFullscreen(false));
   document.addEventListener('keydown', e=>{
-    if (e.key === 'Escape' && document.getElementById('sec-map').classList.contains('is-fullscreen')) toggleMapFullscreen();
+    if (e.key === 'Escape' && document.getElementById('sec-map').classList.contains('is-fullscreen')) setMapFullscreen(false);
   });
 }
 
@@ -2082,6 +2106,12 @@ function initSideNav(){
     btn.addEventListener('click', ()=>{
       document.querySelectorAll('.side-nav button').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
+      // The "แผนที่" item opens the map as its own full-page view instead
+      // of just scrolling to the map card, so it feels like a dedicated map page.
+      if (btn.dataset.target === 'sec-map'){
+        openMapFullPage();
+        return;
+      }
       const target = document.getElementById(btn.dataset.target);
       if (target) target.scrollIntoView({behavior:'smooth', block:'start'});
     });
