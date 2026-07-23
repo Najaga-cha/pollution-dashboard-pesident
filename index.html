@@ -147,10 +147,16 @@ main.content{flex:1; min-width:0; padding:20px 24px 60px;}
   background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
   box-shadow:var(--shadow); padding:16px 20px 18px; margin-bottom:18px;
 }
-.filter-row{display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr 1fr 1fr 1fr; gap:14px; margin-bottom:14px;}
+.filter-row{display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr 1fr 1fr; gap:14px; margin-bottom:14px;}
 .filter-row2{display:grid; grid-template-columns:1fr 1fr auto auto; gap:14px; align-items:end;}
 .field-group{display:flex; flex-direction:column; gap:6px; min-width:0;}
 .field-label{font-size:11.5px; color:var(--ink-soft); font-weight:500;}
+/* Quick-access size filter, sits above the main filter card so it's
+   reachable without opening the full filter panel. Uses the same
+   checkbox-list ms-select dropdown as the other multi-value filters
+   (see createMultiSelect()), just placed and sized on its own. */
+.quick-filter-row{display:flex; align-items:flex-end; gap:14px; margin-bottom:14px;}
+.quick-size-filter{width:240px;}
 .field-input, select.field-input{
   font-family:var(--font-body); font-size:13px; color:var(--ink);
   background:var(--bg); border:1px solid var(--line); border-radius:9px;
@@ -164,17 +170,7 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .search-field{position:relative;}
 .search-field svg{position:absolute; right:11px; left:auto; top:50%; transform:translateY(-50%); width:15px; height:15px; color:var(--ink-faint); pointer-events:none;}
 .search-field input{padding-left:12px; padding-right:34px;}
-.size-chip-group{display:flex; gap:6px;}
-.size-chip{
-  flex:1; border:1px solid transparent; background:var(--bg); border-radius:9px;
-  padding:9px 0; text-align:center; font-size:12.5px; font-weight:700; cursor:pointer; color:var(--ink-soft);
-  transition:all .15s ease;
-}
-.size-chip[data-v="ก"]{background:var(--green-soft); color:var(--green);}
-.size-chip[data-v="ข"]{background:var(--blue-soft); color:var(--blue);}
-.size-chip[data-v="ค"]{background:var(--amber-soft); color:#8a6608;}
-.size-chip[data-v="ง"]{background:var(--purple-soft); color:var(--purple);}
-.size-chip.active{box-shadow:inset 0 0 0 2px currentColor;}
+
 .filter-actions{display:flex; align-items:center; gap:10px; justify-content:flex-end;}
 .btn-clear{
   display:inline-flex; align-items:center; gap:7px; background:var(--card); color:var(--ink-soft);
@@ -667,6 +663,13 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
     <section id="sec-overview">
       <div class="kpi-row" id="kpiRow"></div>
 
+      <div class="quick-filter-row">
+        <div class="field-group quick-size-filter">
+          <span class="field-label">ขนาดของแหล่ง</span>
+          <div class="ms-select" id="fSize"></div>
+        </div>
+      </div>
+
       <div class="filter-card">
         <div class="filter-row">
           <div class="field-group search-field">
@@ -679,15 +682,6 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
           <div class="field-group">
             <span class="field-label">ประเภทแหล่ง</span>
             <div class="ms-select" id="fType"></div>
-          </div>
-          <div class="field-group">
-            <span class="field-label">ขนาดของแหล่ง</span>
-            <div class="size-chip-group" id="fSize">
-              <div class="size-chip" data-v="ก">ก</div>
-              <div class="size-chip" data-v="ข">ข</div>
-              <div class="size-chip" data-v="ค">ค</div>
-              <div class="size-chip" data-v="ง">ง</div>
-            </div>
           </div>
           <div class="field-group">
             <span class="field-label">เขต / อำเภอ</span>
@@ -1098,6 +1092,7 @@ document.addEventListener('click', closeAllMultiSelects);
 document.addEventListener('keydown', e=>{ if (e.key === 'Escape') closeAllMultiSelects(); });
 
 function initMultiSelects(){
+  createMultiSelect('fSize', 'เลือกขนาด');
   createMultiSelect('fType', 'เลือกประเภท');
   createMultiSelect('fDistrict', 'เลือกเขต/อำเภอ');
   createMultiSelect('fSewer', 'เลือกทั้งหมด');
@@ -1105,6 +1100,7 @@ function initMultiSelects(){
   createMultiSelect('fEnforce', 'เลือกทั้งหมด');
   createMultiSelect('fYear', 'เลือกปีงบประมาณ');
   createMultiSelect('fProject', 'เลือกโครงการ');
+  msOptions['fSize'] = [{value:'ก', label:'ขนาด ก'}, {value:'ข', label:'ขนาด ข'}, {value:'ค', label:'ขนาด ค'}, {value:'ง', label:'ขนาด ง'}];
   msOptions['fSewer'] = [{value:'yes', label:'เชื่อมท่อ'}, {value:'no', label:'ไม่เชื่อมท่อ'}];
   msOptions['fStatus'] = [{value:'ok', label:'ปฏิบัติถูกต้อง'}, {value:'partial', label:'ปฏิบัติไม่ครบถ้วน'}, {value:'bad', label:'ไม่ปฏิบัติ'}];
 }
@@ -1123,7 +1119,7 @@ function getFilters(){
   return {
     search: document.getElementById('fSearch').value.trim().toLowerCase(),
     type: getMsValues('fType').map(v=>v.toLowerCase()),
-    size: Array.from(document.querySelectorAll('#fSize .size-chip.active')).map(c=>c.dataset.v),
+    size: getMsValues('fSize'),
     district: getMsValues('fDistrict').map(v=>v.toLowerCase()),
     sewer: getMsValues('fSewer'),
     status: getMsValues('fStatus'),
@@ -1169,16 +1165,9 @@ function attachFilterEvents(){
   });
   document.getElementById('fSearch').addEventListener('keydown', e=>{ if(e.key==='Enter'){ clearTimeout(searchDebounce); applyFilters(); } });
 
-  // Size chips now toggle independently, so more than one size can be active at once.
-  document.getElementById('fSize').addEventListener('click', e=>{
-    const chip = e.target.closest('.size-chip'); if(!chip) return;
-    chip.classList.toggle('active');
-    applyFilters();
-  });
   document.getElementById('resetFilters').addEventListener('click', ()=>{
     document.getElementById('fSearch').value = '';
-    ['fType','fDistrict','fSewer','fStatus','fEnforce','fYear','fProject'].forEach(clearMs);
-    document.querySelectorAll('#fSize .size-chip').forEach(c=>c.classList.remove('active'));
+    ['fSize','fType','fDistrict','fSewer','fStatus','fEnforce','fYear','fProject'].forEach(clearMs);
     applyFilters();
   });
 }
@@ -1880,6 +1869,12 @@ function prDot(color, label){
 let printMapWrapEl = null;
 let printMapOriginalParent = null;
 let printMapOriginalNext = null;
+// Remembers the live dashboard's pan/zoom just before moveMapForPrint()
+// re-frames the (shared, not cloned) Leaflet instance to fit the print
+// layout — so restoreMapAfterPrint() can put the dashboard's map back the
+// way the person had it, instead of leaving it at the print-fitted view.
+let savedMapCenter = null;
+let savedMapZoom = null;
 
 // Resolves once the tile layer fires 'load' (all tiles for the current
 // view finished loading), or after maxWaitMs — whichever comes first — so
@@ -1900,6 +1895,14 @@ function moveMapForPrint(){
     const slot = document.getElementById('prMapSlot');
     const listFallback = document.getElementById('prMapList');
     if (!wrap || !slot){ resolve(); return; }
+    // Capture the dashboard's current view before it's re-framed below —
+    // this is what gets restored once printing/saving is done, so the
+    // person's own pan/zoom (or the view fitted to their current filter
+    // selection) isn't lost/reset by the print-sized fitBounds() call.
+    if (mapInstance){
+      savedMapCenter = mapInstance.getCenter();
+      savedMapZoom = mapInstance.getZoom();
+    }
     printMapWrapEl = wrap;
     printMapOriginalParent = wrap.parentElement;
     printMapOriginalNext = wrap.nextElementSibling;
@@ -1938,7 +1941,17 @@ function restoreMapAfterPrint(){
   const listFallback = document.getElementById('prMapList');
   if (listFallback) listFallback.style.display = '';
   printMapWrapEl = null; printMapOriginalParent = null; printMapOriginalNext = null;
-  requestAnimationFrame(()=>{ if (mapInstance) mapInstance.invalidateSize(); });
+  requestAnimationFrame(()=>{
+    if (!mapInstance) return;
+    mapInstance.invalidateSize();
+    // Put the dashboard's view back the way it was before export re-framed
+    // it for the print layout (see moveMapForPrint()), so the map doesn't
+    // appear to "reset" once the save/print dialog closes.
+    if (savedMapCenter){
+      mapInstance.setView(savedMapCenter, savedMapZoom, { animate:false });
+      savedMapCenter = null; savedMapZoom = null;
+    }
+  });
 }
 
 function exportFullReport(){
