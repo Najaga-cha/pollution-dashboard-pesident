@@ -175,6 +175,17 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .size-chip[data-v="ค"]{background:var(--amber-soft); color:#8a6608;}
 .size-chip[data-v="ง"]{background:var(--purple-soft); color:var(--purple);}
 .size-chip.active{box-shadow:inset 0 0 0 2px currentColor;}
+/* Divider lines between filter fields, so the row reads as clearly
+   separated controls instead of one continuous strip. Drawn inside the
+   existing 14px grid gap (not adding any extra width) via an absolute
+   pseudo-element on every field except the last one in each row. */
+.filter-row{position:relative;}
+.filter-row .field-group, .filter-row2 .field-group{position:relative;}
+.filter-row .field-group:not(:last-child)::after,
+.filter-row2 .field-group:not(:last-child)::after{
+  content:''; position:absolute; top:3px; bottom:3px; right:-7px; width:1px;
+  background:var(--line);
+}
 .filter-actions{display:flex; align-items:center; gap:10px; justify-content:flex-end;}
 .btn-clear{
   display:inline-flex; align-items:center; gap:7px; background:var(--card); color:var(--ink-soft);
@@ -399,6 +410,7 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
   .sidebar{display:none;}
   .kpi-row{grid-template-columns:1fr;}
   .filter-row{grid-template-columns:1fr 1fr;}
+  .filter-row .field-group::after, .filter-row2 .field-group::after{ display:none; }
   .insight-row{grid-template-columns:1fr;}
 }
 
@@ -414,17 +426,13 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
    (not canvases), so nothing can stretch or resize oddly. */
 /* Base: hidden and out of layout during normal browsing. */
 .print-report{ display:none; }
-/* Bug fix: moveMapForPrint() relocates the live Leaflet map into
-   #prMapSlot and calls invalidateSize()/fitBounds() on it *before*
-   window.print() is called — i.e. while the page is still under normal
-   screen CSS, not the @media print rules below. With only `display:none`
-   available at that point, the report (and its A4-sized map slot) has no
-   real layout box yet, so Leaflet measures a 0x0 container and the map
-   comes out blank or mis-centered in the saved/printed output. The
-   `.is-exporting` class (toggled by exportFullReport()/restoreMapAfterPrint())
-   renders the report off-screen — with its real A4 dimensions — just long
-   enough for Leaflet to measure and size into correctly, then it's hidden
-   again once the print dialog closes. */
+/* exportFullReport() captures the live map as an image (captureMapSnapshot())
+   and drops it into #prMapSlot before printing, so it no longer needs the
+   report to have real layout dimensions beforehand. The `.is-exporting`
+   class (toggled by exportFullReport()/restoreMapAfterPrint()) still exists
+   so the report — normally `display:none` — gets its real A4-sized layout
+   box off-screen just long enough to lay out that snapshot image (and the
+   rest of the summary) before window.print() opens the dialog. */
 .print-report, .print-report.is-exporting{
   flex-direction:column;
   width:277mm; height:190mm; box-sizing:border-box;
@@ -448,27 +456,6 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
   header.topbar, .app-shell, .modal-backdrop{ display:none !important; }
   body{ margin:0; background:#fff; }
   .print-report{ display:flex; position:static; left:auto; z-index:auto; }
-  /* Bug fix: Leaflet fades tiles in via a CSS opacity transition and,
-     depending on browser, positions panes/tiles with CSS3 transforms
-     (translate3d). Chrome/Firefox's print/save-as-PDF renderer can catch
-     the tile layer mid-transition or fail to rasterize the transform-based
-     panes, so the printed map came out blank even though it was fully
-     loaded on screen a moment earlier. Forcing full opacity and turning
-     off transitions/animations for the print pass (moveMapForPrint() also
-     temporarily disables L.Browser.any3d, see below) makes sure the tiles
-     and markers are captured in their final, visible state. */
-  .print-report .leaflet-tile,
-  .print-report .leaflet-marker-icon,
-  .print-report .leaflet-marker-shadow,
-  .print-report .leaflet-image-layer,
-  .print-report .leaflet-zoom-animated{
-    opacity:1 !important;
-    transition:none !important;
-    animation:none !important;
-  }
-  .print-report .leaflet-fade-anim .leaflet-tile{ opacity:1 !important; }
-  .print-report .leaflet-pane,
-  .print-report .leaflet-tile-container{ transition:none !important; }
 }
 
 .pr-header{ display:flex; justify-content:space-between; align-items:flex-end; border-bottom:0.6mm solid var(--navy); padding-bottom:3mm; margin-bottom:5mm; }
@@ -494,13 +481,12 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
 .pr-map-card{ border:0.3mm solid var(--line); border-radius:3mm; padding:3mm; display:flex; flex-direction:column; }
 .pr-map-card h4{ font-size:2.7mm; margin:0 0 2mm; color:var(--ink); font-weight:600; display:flex; align-items:center; gap:1.4mm; flex:0 0 auto; }
 .pr-map-card h4 svg{ width:3mm; height:3mm; color:var(--blue); flex-shrink:0; }
-/* Slot that hosts the real, live Leaflet map (moved in from #sec-map just
-   before printing — see moveMapForPrint()/restoreMapAfterPrint()). Sized
-   with flex so it fills whatever height the insight row stretches to. */
-.pr-map-slot{ flex:1; min-height:35mm; border-radius:2mm; overflow:hidden; background:var(--gray-soft); display:flex; flex-direction:column; }
-.pr-map-slot .map-canvas-wrap{ flex:1; min-height:0; display:flex; flex-direction:column; }
-.pr-map-slot #mapview{ flex:1; min-height:0; height:auto !important; width:100%; border-radius:0 !important; border:none !important; }
-.pr-map-slot .map-legend{ transform:scale(.62); transform-origin:left bottom; left:4px; bottom:4px; }
+/* Slot that hosts a captured snapshot of the live Leaflet map (see
+   captureMapSnapshot()/renderPrintMap() in the script), so the printed map
+   always matches exactly what was on screen at export time. Falls back to
+   showing #prMapList (the region-summary bars) if the capture fails. */
+.pr-map-slot{ flex:1; min-height:35mm; border-radius:2mm; overflow:hidden; background:var(--gray-soft); display:flex; flex-direction:column; position:relative; }
+.pr-map-snapshot{ width:100%; height:100%; object-fit:cover; display:block; border-radius:2mm; }
 .pr-map-list{ display:flex; flex-direction:column; gap:2.4mm; }
 .pr-map-item .row1{ display:flex; justify-content:space-between; gap:2mm; font-size:2.4mm; color:var(--ink); margin-bottom:0.8mm; }
 .pr-map-item .row1 .name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -888,6 +874,7 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.min.js';document.head.appendChild(s);"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js" onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js';document.head.appendChild(s);"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';document.head.appendChild(s);"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';document.head.appendChild(s);"></script>
 <script>
 const EMBEDDED_DATA = {"cols":["n","t","c","a","o","s","d","p","w","y","j","st","e"],"rows":[]};
 </script>
@@ -1155,6 +1142,19 @@ function buildFilterOptions(){
   setMsOptions('fProject', uniqueSorted(ALL.map(r=>r.j)));
   setMsOptions('fYear', uniqueSorted(ALL.map(r=>r.y)).sort((a,b)=>a-b));
   setMsOptions('fEnforce', ENFORCE_ORDER);
+  // Bug fix: the size dropdown used to only ever offer the 4 fixed values
+  // that have their own colored quick-chip (ก/ข/ค/ง) — any other size
+  // value actually present in the sheet (e.g. a 5th category, blank/other,
+  // etc.) had no way to be selected at all. Building it from the real data,
+  // like every other filter here, makes sure nothing is missing; values ก-ง
+  // are sorted first (to line up with the chips) and anything extra follows.
+  const KNOWN_SIZES = ['ก','ข','ค','ง'];
+  const sizeValues = uniqueSorted(ALL.map(r=>r.s));
+  const orderedSizes = [
+    ...KNOWN_SIZES.filter(v=>sizeValues.includes(v)),
+    ...sizeValues.filter(v=>!KNOWN_SIZES.includes(v)),
+  ];
+  setMsOptions('fSizeDropdown', orderedSizes);
   // fSewer / fStatus have fixed option sets (assigned in initMultiSelects) and don't depend on the loaded data.
 }
 
@@ -1445,7 +1445,7 @@ function renderMap(){
     mapInstance = L.map('mapview', { scrollWheelZoom:true }).setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
     mapTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       attribution:'&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OpenStreetMap contributors',
-      maxZoom:19, subdomains:'abcd',
+      maxZoom:19, subdomains:'abcd', crossOrigin:'anonymous',
     }).addTo(mapInstance);
     markerCluster = L.markerClusterGroup({
       maxClusterRadius:60,
@@ -1916,118 +1916,63 @@ function prDot(color, label){
   return `<span class="pr-dot"><span class="d" style="background:${color}"></span>${escapeHtml(label)}</span>`;
 }
 
-/* ---------------- Move the real map into the print report ----------------
-   Rather than trying to snapshot Leaflet's tile canvas (which is prone to
-   CORS/tainted-canvas failures), the actual #mapview/.map-canvas-wrap DOM
-   node — with its live mapInstance still attached — is relocated into the
-   print report's slot just before printing, resized via invalidateSize(),
-   then moved back to its normal spot on the dashboard afterwards. */
-let printMapWrapEl = null;
-let printMapOriginalParent = null;
-let printMapOriginalNext = null;
-// Bug fix ("map resets every time I download"): moveMapForPrint() used to
-// fitBounds() the live map to the full filtered extent so the printed page
-// shows everything, but it never remembered what the user had been looking
-// at on screen — so after every export the on-screen map was left panned/
-// zoomed to that print view instead of snapping back to where the person
-// had it. These remember the pre-export view so restoreMapAfterPrint() can
-// put it back exactly.
-let printMapPrevCenter = null;
-let printMapPrevZoom = null;
-// Bug fix ("map doesn't show up in the PDF"): Leaflet positions its tile/
-// marker panes using CSS3 transforms (translate3d) whenever the browser
-// supports them, and fades tiles in via a CSS opacity transition. Chrome/
-// Firefox's print-to-PDF renderer frequently fails to rasterize those
-// transform-positioned panes, or catches the fade transition mid-flight —
-// so the map looked fine on screen but came out blank in the saved PDF.
-// Forcing Leaflet into its non-3D (top/left) positioning mode just for the
-// export, then re-measuring the view, sidesteps that rendering gap; it's
-// restored to normal afterwards so on-screen panning/zooming stays smooth.
-let printMapPrevAny3d = null;
-
-// Resolves once the tile layer fires 'load' (all tiles for the current
-// view finished loading), or after maxWaitMs — whichever comes first — so
-// a slow/offline connection can never hang the export forever.
-function waitForMapTilesReady(maxWaitMs){
+/* ---------------- Snapshot the live map for the print report ----------------
+   Bug fix: the previous approach physically relocated the live #mapview DOM
+   node into the print report and had Leaflet re-fit itself into that
+   differently-sized box right before printing. That's exactly why the
+   printed map could end up centered/zoomed differently from what was on
+   screen, or come out blank — browsers' print/save-as-PDF renderer doesn't
+   reliably rasterize Leaflet's transform-positioned tile panes and
+   fade-in tiles when they change size at the last second. Capturing the
+   map *as currently displayed* with html2canvas and embedding that as a
+   plain image sidesteps both issues: the PDF always matches the screen
+   exactly, and there's no live map to move, resize, or lose track of. */
+function captureMapSnapshot(){
   return new Promise(resolve=>{
-    if (!mapInstance || !mapTileLayer){ resolve(); return; }
-    let done = false;
-    const finish = ()=>{ if (done) return; done = true; mapTileLayer.off('load', finish); resolve(); };
-    mapTileLayer.on('load', finish);
-    setTimeout(finish, maxWaitMs);
+    const mapEl = document.getElementById('mapview');
+    if (!mapEl || !mapInstance || typeof html2canvas !== 'function'){ resolve(null); return; }
+    html2canvas(mapEl, {
+      useCORS: true,
+      backgroundColor: '#EEF0F4',
+      scale: Math.min(2, window.devicePixelRatio || 1),
+      logging: false,
+      ignoreElements: el => el.classList && (
+        el.classList.contains('leaflet-control-zoom') || el.classList.contains('leaflet-popup')
+      ),
+    }).then(canvas=>{
+      try{ resolve(canvas.toDataURL('image/png')); }
+      catch(e){ resolve(null); } // tainted canvas or similar — fall back gracefully
+    }).catch(()=> resolve(null));
   });
 }
 
-function moveMapForPrint(){
-  return new Promise(resolve=>{
-    const wrap = document.querySelector('#sec-map .map-canvas-wrap');
-    const slot = document.getElementById('prMapSlot');
-    const listFallback = document.getElementById('prMapList');
-    if (!wrap || !slot){ resolve(); return; }
-    if (mapInstance){
-      printMapPrevCenter = mapInstance.getCenter();
-      printMapPrevZoom = mapInstance.getZoom();
+// Drops the captured snapshot into the report's map slot, or — if the
+// capture failed for any reason — falls back to the region-summary bars
+// (#prMapList) that were already being built as a safety net, so the
+// report never ships with a blank box where the map should be.
+function renderPrintMap(dataUrl){
+  const slot = document.getElementById('prMapSlot');
+  const listFallback = document.getElementById('prMapList');
+  if (!slot) return;
+  let img = slot.querySelector('.pr-map-snapshot');
+  if (dataUrl){
+    if (!img){
+      img = document.createElement('img');
+      img.className = 'pr-map-snapshot';
+      img.alt = 'แผนที่พิกัดแหล่งกำเนิดมลพิษ';
+      slot.insertBefore(img, listFallback || null);
     }
-    if (window.L && L.Browser){
-      printMapPrevAny3d = L.Browser.any3d;
-      L.Browser.any3d = false;
-    }
-    printMapWrapEl = wrap;
-    printMapOriginalParent = wrap.parentElement;
-    printMapOriginalNext = wrap.nextElementSibling;
+    img.src = dataUrl;
     if (listFallback) listFallback.style.display = 'none';
-    slot.insertBefore(wrap, listFallback || null);
-    // Bug fix: previously invalidateSize()/fitBounds() ran on the very next
-    // animation frame, before the browser had actually laid out the newly
-    // inserted node at its print-page size — so Leaflet could measure a
-    // 0x0 (or stale) container, request the wrong tiles, and the map would
-    // print/screenshot as an empty box (no basemap, no marker pins). Forcing
-    // a synchronous layout read first guarantees the real size is used.
-    void slot.offsetHeight;
-    requestAnimationFrame(()=>{
-      if (!mapInstance){ resolve(); return; }
-      mapInstance.invalidateSize({ animate:false });
-      if (lastFitBounds){ try{ mapInstance.fitBounds(lastFitBounds, { padding:[4,4], animate:false }); }catch(e){} }
-      // Give the (now correctly-sized) map a real chance to fetch and paint
-      // its tiles before the print snapshot is taken, then a short settle
-      // delay so any in-flight tile fade/zoom transition finishes — without
-      // it, tiles that finished loading a moment before the snapshot could
-      // still be mid fade-in (effectively invisible) when window.print()
-      // captures the page.
-      waitForMapTilesReady(1800).then(()=> setTimeout(resolve, 350));
-    });
-  });
+  } else {
+    if (img) img.remove();
+    if (listFallback) listFallback.style.display = '';
+  }
 }
 
 function restoreMapAfterPrint(){
-  // Always clear .is-exporting, even if the map wrap/slot wasn't found
-  // above (moveMapForPrint() resolved early) — otherwise the report would
-  // stay rendered off-screen indefinitely.
   const printReportEl = document.getElementById('printReport');
   if (printReportEl) printReportEl.classList.remove('is-exporting');
-  if (window.L && L.Browser && printMapPrevAny3d !== null){
-    L.Browser.any3d = printMapPrevAny3d;
-    printMapPrevAny3d = null;
-  }
-  if (!printMapWrapEl || !printMapOriginalParent) return;
-  if (printMapOriginalNext && printMapOriginalNext.parentElement === printMapOriginalParent){
-    printMapOriginalParent.insertBefore(printMapWrapEl, printMapOriginalNext);
-  } else {
-    printMapOriginalParent.appendChild(printMapWrapEl);
-  }
-  const listFallback = document.getElementById('prMapList');
-  if (listFallback) listFallback.style.display = '';
-  printMapWrapEl = null; printMapOriginalParent = null; printMapOriginalNext = null;
-  requestAnimationFrame(()=>{
-    if (!mapInstance) return;
-    mapInstance.invalidateSize();
-    // Put the on-screen map back exactly how the user left it, rather than
-    // leaving it on the "fit everything" view used for the print page.
-    if (printMapPrevCenter && printMapPrevZoom != null){
-      mapInstance.setView(printMapPrevCenter, printMapPrevZoom, { animate:false });
-    }
-    printMapPrevCenter = null; printMapPrevZoom = null;
-  });
 }
 
 function exportFullReport(){
@@ -2036,24 +1981,15 @@ function exportFullReport(){
   // renderPrintSummary() builds that dedicated summary; the print
   // stylesheet then hides the live dashboard and shows only the summary.
   renderPrintSummary();
-
-  // Bug fix: reveal the report (off-screen, at real A4 size) via
-  // .is-exporting *before* the map gets moved/resized into it. Without
-  // this, #printReport is still display:none (normal screen CSS) at the
-  // moment moveMapForPrint() runs — since @media print only takes effect
-  // once window.print() actually opens the dialog — so Leaflet would
-  // measure a 0x0 container and the saved map came out blank/misplaced.
-  const printReportEl = document.getElementById('printReport');
-  if (printReportEl) printReportEl.classList.add('is-exporting');
-
-  // Give the browser a frame to lay out the summary, then relocate the
-  // real map into it — and actually wait until its tiles/pins have loaded
-  // (moveMapForPrint's promise) — before opening the print/save-as-PDF
-  // dialog. This is what previously showed an empty map: printing used to
-  // fire on a fixed timer, often before the basemap tiles had arrived.
-  setTimeout(()=>{
-    moveMapForPrint().then(()=>{ window.print(); });
-  }, 150);
+  captureMapSnapshot().then(dataUrl=>{
+    renderPrintMap(dataUrl);
+    const printReportEl = document.getElementById('printReport');
+    if (printReportEl) printReportEl.classList.add('is-exporting');
+    // Two frames so the report (now revealed at its real A4 size) finishes
+    // laying out the snapshot image before the print/save-as-PDF dialog
+    // opens — avoids a race where the image hasn't painted yet.
+    requestAnimationFrame(()=> requestAnimationFrame(()=> window.print()));
+  });
 }
 
 /* ---------------- CSV export ---------------- */
