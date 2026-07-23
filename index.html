@@ -487,6 +487,38 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
   .print-report{ display:flex; position:static; left:auto; z-index:auto; }
 }
 
+/* ---- Full data-table report (used by the "ดาวน์โหลดรายงาน" button next to
+   the table) — a separate print target from the dashboard summary above, so
+   printing from the table section yields every row/column of the table
+   itself rather than the one-page dashboard overview. Which one actually
+   appears at print time is switched via the body.print-target-table class
+   toggled in exportTableReport(). */
+.print-table-report{ display:none; }
+.print-table-report, .print-table-report.is-exporting{
+  flex-direction:column; width:277mm; box-sizing:border-box;
+  font-family:var(--font-body); color:var(--ink);
+}
+@media screen{
+  .print-table-report.is-exporting{
+    display:flex;
+    position:fixed; top:0; left:-10000px; z-index:-1;
+    background:#fff;
+  }
+}
+table.pr-table-full{ width:100%; border-collapse:collapse; font-size:2.6mm; margin-top:4mm; }
+table.pr-table-full thead{ display:table-header-group; }
+table.pr-table-full thead th{
+  text-align:left; font-weight:600; color:var(--ink-soft); font-size:2.3mm;
+  background:var(--bg); padding:2mm 2.6mm; border:0.25mm solid var(--line); white-space:nowrap;
+}
+table.pr-table-full tbody td{ padding:1.8mm 2.6mm; border:0.25mm solid var(--line); color:var(--ink); }
+table.pr-table-full tbody tr{ break-inside:avoid; }
+@media print{
+  body.print-target-table .print-report{ display:none !important; }
+  body.print-target-table .print-table-report{ display:flex !important; position:static; left:auto; z-index:auto; }
+  body:not(.print-target-table) .print-table-report{ display:none !important; }
+}
+
 .pr-header{ display:flex; justify-content:space-between; align-items:flex-end; border-bottom:0.6mm solid var(--navy); padding-bottom:3mm; margin-bottom:5mm; }
 .pr-header h1{ font-family:var(--font-display); font-size:6mm; margin:0; color:var(--navy); }
 .pr-header .pr-sub{ font-size:3mm; color:var(--ink-soft); margin:1mm 0 0; }
@@ -625,6 +657,42 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
   </div>
 
   <p class="pr-footer">รายงานสรุปภาพรวม สร้างจากข้อมูล ณ เวลาที่บันทึก · ระบบติดตามแหล่งกำเนิดมลพิษ</p>
+</div>
+
+<!-- Full data-table report — shown only when exporting via the
+     "ดาวน์โหลดรายงาน" button next to the table (exportTableReport() /
+     renderPrintTableFull()). Prints every row/column of the live table,
+     unlike #printReport above which is a condensed one-page summary. -->
+<div class="print-table-report" id="printTableReport">
+  <div class="pr-header">
+    <div>
+      <h1>ข้อมูลแหล่งกำเนิดมลพิษทั้งหมด</h1>
+      <p class="pr-sub">รายงานตารางข้อมูลฉบับเต็ม · ระบบติดตามแหล่งกำเนิดมลพิษ</p>
+    </div>
+    <div class="pr-meta">
+      <p id="printTableGeneratedAt"></p>
+      <p id="printTableFilterSummary"></p>
+      <p>พบทั้งหมด <b id="printTableCount">0</b> รายการ</p>
+    </div>
+  </div>
+  <table class="pr-table-full">
+    <thead>
+      <tr>
+        <th>ลำดับ</th>
+        <th>ชื่อแหล่งกำเนิดมลพิษ</th>
+        <th>ประเภทแหล่ง</th>
+        <th>ขนาด</th>
+        <th>เขต / อำเภอ</th>
+        <th>เชื่อมท่อ</th>
+        <th>การปฏิบัติตามกฎหมาย</th>
+        <th>สถานะบังคับใช้กฎหมาย</th>
+        <th>ปีงบประมาณ</th>
+        <th>โครงการที่เข้าตรวจสอบ</th>
+      </tr>
+    </thead>
+    <tbody id="printTableFullBody"></tbody>
+  </table>
+  <p class="pr-footer">รายงานตารางข้อมูลฉบับเต็ม สร้างจากข้อมูล ณ เวลาที่บันทึก · ระบบติดตามแหล่งกำเนิดมลพิษ</p>
 </div>
 
 <header class="topbar">
@@ -841,7 +909,7 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
               ส่งออกข้อมูล
             </button>
-            <button class="btn-export" id="downloadReportPromptBtn" type="button" title="บันทึกรายงานทั้งหมด (ระบบจะถามยืนยันก่อนดาวน์โหลด)">
+            <button class="btn-export" id="downloadReportPromptBtn" type="button" title="บันทึกตารางข้อมูลทั้งหมดเป็น PDF (ระบบจะถามยืนยันก่อนดาวน์โหลด)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
               ดาวน์โหลดรายงาน
             </button>
@@ -2009,6 +2077,46 @@ function prDot(color, label){
   return `<span class="pr-dot"><span class="d" style="background:${color}"></span>${escapeHtml(label)}</span>`;
 }
 
+/* ---------------- Full data-table print report ----------------
+   Builds every row of FILTERED (not just a preview slice like the summary
+   report) into #printTableFullBody, so the "ดาวน์โหลดรายงาน" button next to
+   the table exports the complete table — same columns as the live table,
+   minus the "ดูรายละเอียด" action column which has no meaning on paper. */
+function renderPrintTableFull(){
+  const total = FILTERED.length;
+  document.getElementById('printTableGeneratedAt').textContent =
+    'ข้อมูล ณ วันที่ ' + new Date().toLocaleString('th-TH');
+  document.getElementById('printTableFilterSummary').textContent = buildFilterSummaryText();
+  document.getElementById('printTableCount').textContent = total.toLocaleString('th-TH');
+  document.getElementById('printTableFullBody').innerHTML = FILTERED.map((r,i)=>{
+    const bucket = complyBucket(r);
+    const eb = enforceBucket(r);
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${escapeHtml(r.n||'-')}</td>
+      <td>${escapeHtml(r.t||'-')}</td>
+      <td>${prSizeBadge(r.s)}</td>
+      <td>${escapeHtml(r.d||'-')}</td>
+      <td>${prDot(r.w?'#1AA36A':'#E0452F', r.w?'เชื่อมท่อ':'ไม่เชื่อมท่อ')}</td>
+      <td>${prDot(COMPLY_COLORS[bucket], COMPLY_LABEL[bucket])}</td>
+      <td>${prDot(ENFORCE_COLORS[eb]||'#94A0B4', eb)}</td>
+      <td>${r.y!=null ? r.y : '-'}</td>
+      <td>${escapeHtml(r.j||'-')}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="10" style="text-align:center; color:var(--ink-faint); padding:4mm;">ไม่พบข้อมูลที่ตรงกับตัวกรอง</td></tr>`;
+}
+
+function exportTableReport(){
+  renderPrintTableFull();
+  // Switches the print target to #printTableReport instead of the
+  // dashboard-summary #printReport — see the body.print-target-table rules
+  // in the print stylesheet.
+  document.body.classList.add('print-target-table');
+  const el = document.getElementById('printTableReport');
+  if (el) el.classList.add('is-exporting');
+  requestAnimationFrame(()=> requestAnimationFrame(()=> window.print()));
+}
+
 /* ---------------- Snapshot the live map for the print report ----------------
    Bug fix: the previous approach physically relocated the live #mapview DOM
    node into the print report and had Leaflet re-fit itself into that
@@ -2066,6 +2174,9 @@ function renderPrintMap(dataUrl){
 function restoreMapAfterPrint(){
   const printReportEl = document.getElementById('printReport');
   if (printReportEl) printReportEl.classList.remove('is-exporting');
+  const printTableReportEl = document.getElementById('printTableReport');
+  if (printTableReportEl) printTableReportEl.classList.remove('is-exporting');
+  document.body.classList.remove('print-target-table');
 }
 
 function exportFullReport(){
@@ -2141,11 +2252,13 @@ function init(){
     // the live map back where it belongs once the dialog closes.
     window.addEventListener('afterprint', restoreMapAfterPrint);
     // In the "ข้อมูลแหล่งกำเนิดมลพิษทั้งหมด" section, ask for explicit
-    // yes/no confirmation before downloading the full report — the button
-    // only triggers the save when the user chooses to.
+    // yes/no confirmation before downloading the full table — the button
+    // only triggers the save when the user chooses to. This exports the
+    // complete data table (every row/column) as a PDF via print, separate
+    // from the dashboard-summary export on the header's exportBtn.
     document.getElementById('downloadReportPromptBtn').addEventListener('click', ()=>{
-      const wantsDownload = window.confirm('ต้องการดาวน์โหลดรายงานหรือไม่?');
-      if (wantsDownload) exportFullReport();
+      const wantsDownload = window.confirm('ต้องการดาวน์โหลดตารางข้อมูลทั้งหมดเป็น PDF หรือไม่?');
+      if (wantsDownload) exportTableReport();
     });
     document.getElementById('viewAllProjects').addEventListener('click', ()=>{
       document.getElementById('sec-table').scrollIntoView({behavior:'smooth'});
