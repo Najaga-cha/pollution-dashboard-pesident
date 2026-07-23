@@ -237,7 +237,7 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .ms-panel-actions button.ms-clear-btn:hover{background:var(--gray-soft);}
 
 /* ================= Insight row: map + donuts + top5 ================= */
-.insight-row{display:grid; grid-template-columns:1.5fr .82fr .82fr .82fr 1fr; gap:16px; margin-bottom:18px; align-items:stretch;}
+.insight-row{display:grid; grid-template-columns:1.5fr 2.5fr 1fr; gap:16px; margin-bottom:18px; align-items:stretch;}
 .panel{
   background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
   box-shadow:var(--shadow); padding:20px 20px 18px; display:flex; flex-direction:column;
@@ -296,6 +296,11 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 
 .donut-card{align-items:center;}
 .donut-card canvas{width:100% !important; max-width:158px; max-height:158px;}
+.donut-card-group{flex-direction:row; align-items:stretch; padding:20px 8px 18px; gap:0;}
+.donut-sub{flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; padding:0 14px;}
+.donut-sub:not(:first-child){border-left:1px solid var(--line);}
+.donut-sub .panel-title{text-align:center;}
+.donut-sub canvas{width:100% !important; max-width:118px; max-height:118px;}
 .donut-center{position:relative; width:100%; display:flex; justify-content:center;}
 .donut-mid{
   position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none;
@@ -313,13 +318,13 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .top5-panel .top5-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;}
 .top5-panel .top5-sub{font-size:9.5px; color:var(--ink-faint);}
 .top5-list{display:flex; flex-direction:column; gap:16px; margin-top:8px;}
-.top5-item{display:flex; flex-direction:column; gap:5px;}
-.top5-item .row1{display:flex; justify-content:space-between; gap:8px; font-size:10.5px;}
-.top5-item .rank{color:var(--blue); font-weight:700; margin-right:5px;}
-.top5-item .name{color:var(--ink-soft); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.top5-item .val{font-weight:700; color:var(--ink); font-family:var(--font-mono); flex-shrink:0;}
-.top5-item .bar-track{height:6px; border-radius:4px; background:var(--gray-soft); overflow:hidden;}
-.top5-item .bar-fill{height:100%; border-radius:4px; background:var(--blue);}
+.top5-item{display:flex; flex-direction:column; gap:6px;}
+.top5-item .row1{display:flex; justify-content:flex-start; gap:8px; font-size:10.5px;}
+.top5-item .rank{color:var(--blue); font-weight:700; margin-right:5px; flex-shrink:0;}
+.top5-item .name{color:var(--ink-soft); min-width:0; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+.top5-item .bar-row{display:flex; align-items:center; gap:8px;}
+.top5-item .bar-fill{height:10px; background:var(--blue); flex-shrink:0; min-width:3px;}
+.top5-item .val{font-weight:700; color:var(--ink); font-family:var(--font-mono); flex-shrink:0; font-size:11.5px;}
 .btn-viewall{
   margin-top:auto; padding-top:12px; width:100%; text-align:center; border:1px solid var(--line);
   background:var(--bg); color:var(--ink-soft); border-radius:9px; padding:10px; font-size:12.5px; font-weight:600; cursor:pointer;
@@ -346,14 +351,14 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .pager button:disabled{opacity:.4; cursor:not-allowed;}
 .pager .dots{color:var(--ink-faint); font-size:12.5px; padding:0 2px;}
 
-.table-scroll{overflow-x:auto; margin-top:14px;}
+.table-scroll{overflow-x:auto; margin-top:14px; border:1px solid var(--line); border-radius:10px;}
 table.datatable{width:100%; border-collapse:collapse; font-size:12.8px; min-width:1180px;}
 table.datatable thead th{
   text-align:left; font-weight:600; color:var(--ink-soft); font-size:11.5px;
-  background:var(--bg); padding:10px 12px; white-space:nowrap; border-bottom:1px solid var(--line);
+  background:var(--bg); padding:10px 12px; white-space:nowrap; border:1px solid var(--line);
   position:sticky; top:0;
 }
-table.datatable tbody td{padding:11px 12px; border-bottom:1px solid var(--line); color:var(--ink); vertical-align:middle;}
+table.datatable tbody td{padding:11px 12px; border:1px solid var(--line); color:var(--ink); vertical-align:middle;}
 table.datatable tbody tr:hover{background:#F7F9FC;}
 .cell-name .primary{font-weight:600; color:var(--ink);}
 .cell-name .secondary{font-size:11px; color:var(--ink-faint); margin-top:2px;}
@@ -402,9 +407,23 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
   border:1px dashed var(--line); border-radius:9px; padding:10px; font-size:12px; color:var(--ink-soft); cursor:pointer;
 }
 
+/* ---- Row detail modal ---- */
+.detail-modal{width:520px; max-width:100%; background:var(--card); border-radius:14px; box-shadow:var(--shadow); padding:22px;}
+.detail-modal h3{margin:0 0 16px; font-family:var(--font-display); font-size:16px; padding-right:24px; line-height:1.4;}
+.detail-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px 18px;}
+.detail-item{display:flex; flex-direction:column; gap:4px; min-width:0;}
+.detail-item.full{grid-column:1 / -1;}
+.detail-item .lab{font-size:11px; color:var(--ink-faint);}
+.detail-item .val{font-size:13px; color:var(--ink); font-weight:600; word-break:break-word;}
+
 @media (max-width:1180px){
   .insight-row{grid-template-columns:1fr 1fr; }
   .insight-row .top5-panel{grid-column:span 2;}
+  .insight-row .donut-card-group{grid-column:span 2;}
+}
+@media (max-width:640px){
+  .donut-card-group{flex-direction:column;}
+  .donut-sub:not(:first-child){border-left:none; border-top:1px solid var(--line); padding-top:16px; margin-top:16px;}
 }
 @media (max-width:980px){
   .sidebar{display:none;}
@@ -762,25 +781,27 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
           </div>
         </div>
 
-        <div class="panel donut-card">
-          <div class="panel-title">เชื่อมท่อ / ไม่เชื่อมท่อ</div>
-          <div class="donut-center"><canvas id="chartSewer"></canvas><div class="donut-mid" id="sewerMid"></div></div>
-          <div class="donut-total">ทั้งหมด <b id="sewerTotal">0</b> แห่ง</div>
-          <div class="donut-legend" id="sewerLegend"></div>
-        </div>
+        <div class="panel donut-card-group">
+          <div class="donut-sub">
+            <div class="panel-title">เชื่อมท่อ / ไม่เชื่อมท่อ</div>
+            <div class="donut-center"><canvas id="chartSewer"></canvas><div class="donut-mid" id="sewerMid"></div></div>
+            <div class="donut-total">ทั้งหมด <b id="sewerTotal">0</b> แห่ง</div>
+            <div class="donut-legend" id="sewerLegend"></div>
+          </div>
 
-        <div class="panel donut-card">
-          <div class="panel-title">การปฏิบัติตามกฎหมายในการระบายน้ำทิ้ง</div>
-          <div class="donut-center"><canvas id="chartCompliance"></canvas><div class="donut-mid" id="complianceMid"></div></div>
-          <div class="donut-total">ทั้งหมด <b id="complianceTotal">0</b> แห่ง</div>
-          <div class="donut-legend" id="complianceLegend"></div>
-        </div>
+          <div class="donut-sub">
+            <div class="panel-title">การปฏิบัติตามกฎหมายในการระบายน้ำทิ้ง</div>
+            <div class="donut-center"><canvas id="chartCompliance"></canvas><div class="donut-mid" id="complianceMid"></div></div>
+            <div class="donut-total">ทั้งหมด <b id="complianceTotal">0</b> แห่ง</div>
+            <div class="donut-legend" id="complianceLegend"></div>
+          </div>
 
-        <div class="panel donut-card">
-          <div class="panel-title">สถานะการบังคับใช้กฎหมาย</div>
-          <div class="donut-center"><canvas id="chartEnforce"></canvas><div class="donut-mid" id="enforceMid"></div></div>
-          <div class="donut-total">ทั้งหมด <b id="enforceTotal">0</b> แห่ง</div>
-          <div class="donut-legend" id="enforceLegend"></div>
+          <div class="donut-sub">
+            <div class="panel-title">สถานะการบังคับใช้กฎหมาย</div>
+            <div class="donut-center"><canvas id="chartEnforce"></canvas><div class="donut-mid" id="enforceMid"></div></div>
+            <div class="donut-total">ทั้งหมด <b id="enforceTotal">0</b> แห่ง</div>
+            <div class="donut-legend" id="enforceLegend"></div>
+          </div>
         </div>
 
         <div class="panel top5-panel">
@@ -867,6 +888,15 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
     <div class="gsheet-msg" id="gsheetMsg"></div>
     <label class="upload-label" for="fileInput">อัปโหลดไฟล์ .xlsx/.csv จากเครื่องแทน</label>
     <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden>
+  </div>
+</div>
+
+<!-- ===================== Row detail modal ===================== -->
+<div class="modal-backdrop" id="detailModal" hidden>
+  <div class="detail-modal">
+    <button class="close-x" id="detailCloseBtn" type="button">✕</button>
+    <h3 id="detailTitle">-</h3>
+    <div class="detail-grid" id="detailGrid"></div>
   </div>
 </div>
 
@@ -1343,10 +1373,13 @@ function renderTop5(){
   document.getElementById('top5List').innerHTML = top.map(([name,count],i)=>`
     <div class="top5-item">
       <div class="row1">
-        <span class="name"><span class="rank">${i+1}</span>${escapeHtml(name)}</span>
+        <span class="rank">${i+1}</span>
+        <span class="name">${escapeHtml(name)}</span>
+      </div>
+      <div class="bar-row">
+        <div class="bar-fill" style="width:${Math.round(count/max*70)}%"></div>
         <span class="val">${count.toLocaleString('th-TH')}</span>
       </div>
-      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(count/max*100)}%"></div></div>
     </div>
   `).join('') || '<div style="font-size:12px; color:var(--ink-faint);">ไม่มีข้อมูล</div>';
 }
@@ -1382,12 +1415,46 @@ function renderTable(){
       <td>${statusDot(eb, eb, ENFORCE_COLORS)}</td>
       <td>${r.y!=null ? r.y : '-'}</td>
       <td>${escapeHtml(r.j||'-')}</td>
-      <td><button class="eye-btn" title="ดูรายละเอียด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></td>
+      <td><button class="eye-btn" type="button" data-idx="${start+i}" title="ดูรายละเอียด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></td>
     </tr>`;
   }).join('') || `<tr><td colspan="11" style="text-align:center; color:var(--ink-faint); padding:30px;">ไม่พบข้อมูลที่ตรงกับตัวกรอง</td></tr>`;
 
   renderPager('pagerTop', totalPages);
   renderPager('pagerBottom', totalPages);
+}
+
+/* ---------------- Row detail modal ---------------- */
+function openDetailModal(row){
+  const bucket = complyBucket(row);
+  const eb = enforceBucket(row);
+  document.getElementById('detailTitle').textContent = row.n || '-';
+  const items = [
+    ['ประเภทแหล่ง', row.t || '-'],
+    ['ขนาดของแหล่ง', row.s || '-'],
+    ['เขต / อำเภอ', row.d || '-'],
+    ['จังหวัด', row.p || '-'],
+    ['เชื่อมท่อ', row.w ? 'เชื่อมท่อ' : 'ไม่เชื่อมท่อ'],
+    ['การปฏิบัติตามกฎหมายในการระบายน้ำทิ้ง', COMPLY_LABEL[bucket]],
+    ['สถานะการบังคับใช้กฎหมาย', eb],
+    ['ปีงบประมาณที่เริ่มตรวจ', row.y!=null ? row.y : '-'],
+    ['โครงการที่เข้าตรวจสอบ', row.j || '-'],
+  ];
+  document.getElementById('detailGrid').innerHTML = items.map(([lab,val])=>`
+    <div class="detail-item"><span class="lab">${escapeHtml(lab)}</span><span class="val">${escapeHtml(String(val))}</span></div>
+  `).join('');
+  document.getElementById('detailModal').hidden = false;
+}
+function initDetailModal(){
+  const modal = document.getElementById('detailModal');
+  document.getElementById('detailCloseBtn').addEventListener('click', ()=>{ modal.hidden = true; });
+  modal.addEventListener('click', e=>{ if (e.target === modal) modal.hidden = true; });
+  document.getElementById('tableBody').addEventListener('click', e=>{
+    const btn = e.target.closest('.eye-btn');
+    if (!btn) return;
+    const idx = parseInt(btn.dataset.idx, 10);
+    const row = FILTERED[idx];
+    if (row) openDetailModal(row);
+  });
 }
 
 function renderPager(elId, totalPages){
@@ -2053,6 +2120,7 @@ function init(){
     });
   });
   safeStep('initMapControls', initMapControls);
+  safeStep('initDetailModal', initDetailModal);
   safeStep('loadInitialData', ()=> loadData(EMBEDDED_DATA, 'กำลังเชื่อมต่อ Google Sheet...'));
   // If Chart.js hadn't finished loading (or was still loading via the
   // fallback CDN) when the donuts were first drawn, re-render them once it
