@@ -430,10 +430,17 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
   width:277mm; height:190mm; box-sizing:border-box;
   font-family:var(--font-body); color:var(--ink);
 }
-.print-report.is-exporting{
-  display:flex;
-  position:fixed; top:0; left:-10000px; z-index:-1;
-  background:#fff;
+/* Screen-only: scoped to @media screen so this can never win out over the
+   @media print rule below by specificity if .is-exporting happens to still
+   be on the element during the actual print pass (it's only removed after
+   printing finishes, via the 'afterprint' event) — otherwise the report
+   would stay pinned off-screen at left:-10000px and print entirely blank. */
+@media screen{
+  .print-report.is-exporting{
+    display:flex;
+    position:fixed; top:0; left:-10000px; z-index:-1;
+    background:#fff;
+  }
 }
 @media print{
   @page{ size:A4 landscape; margin:10mm; }
