@@ -412,17 +412,35 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
    and #printReport — sized in mm to physically match one A4 landscape
    page — is shown instead. Its donut charts are plain CSS conic-gradients
    (not canvases), so nothing can stretch or resize oddly. */
+/* Base: hidden and out of layout during normal browsing. */
 .print-report{ display:none; }
+/* Bug fix: moveMapForPrint() relocates the live Leaflet map into
+   #prMapSlot and calls invalidateSize()/fitBounds() on it *before*
+   window.print() is called — i.e. while the page is still under normal
+   screen CSS, not the @media print rules below. With only `display:none`
+   available at that point, the report (and its A4-sized map slot) has no
+   real layout box yet, so Leaflet measures a 0x0 container and the map
+   comes out blank or mis-centered in the saved/printed output. The
+   `.is-exporting` class (toggled by exportFullReport()/restoreMapAfterPrint())
+   renders the report off-screen — with its real A4 dimensions — just long
+   enough for Leaflet to measure and size into correctly, then it's hidden
+   again once the print dialog closes. */
+.print-report, .print-report.is-exporting{
+  flex-direction:column;
+  width:277mm; height:190mm; box-sizing:border-box;
+  font-family:var(--font-body); color:var(--ink);
+}
+.print-report.is-exporting{
+  display:flex;
+  position:fixed; top:0; left:-10000px; z-index:-1;
+  background:#fff;
+}
 @media print{
   @page{ size:A4 landscape; margin:10mm; }
   *{ -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
   header.topbar, .app-shell, .modal-backdrop{ display:none !important; }
   body{ margin:0; background:#fff; }
-  .print-report{
-    display:flex; flex-direction:column;
-    width:277mm; height:190mm; box-sizing:border-box;
-    font-family:var(--font-body); color:var(--ink);
-  }
+  .print-report{ display:flex; position:static; left:auto; z-index:auto; }
 }
 
 .pr-header{ display:flex; justify-content:space-between; align-items:flex-end; border-bottom:0.6mm solid var(--navy); padding-bottom:3mm; margin-bottom:5mm; }
@@ -1899,6 +1917,11 @@ function moveMapForPrint(){
 }
 
 function restoreMapAfterPrint(){
+  // Always clear .is-exporting, even if the map wrap/slot wasn't found
+  // above (moveMapForPrint() resolved early) — otherwise the report would
+  // stay rendered off-screen indefinitely.
+  const printReportEl = document.getElementById('printReport');
+  if (printReportEl) printReportEl.classList.remove('is-exporting');
   if (!printMapWrapEl || !printMapOriginalParent) return;
   if (printMapOriginalNext && printMapOriginalNext.parentElement === printMapOriginalParent){
     printMapOriginalParent.insertBefore(printMapWrapEl, printMapOriginalNext);
@@ -1917,6 +1940,15 @@ function exportFullReport(){
   // renderPrintSummary() builds that dedicated summary; the print
   // stylesheet then hides the live dashboard and shows only the summary.
   renderPrintSummary();
+
+  // Bug fix: reveal the report (off-screen, at real A4 size) via
+  // .is-exporting *before* the map gets moved/resized into it. Without
+  // this, #printReport is still display:none (normal screen CSS) at the
+  // moment moveMapForPrint() runs — since @media print only takes effect
+  // once window.print() actually opens the dialog — so Leaflet would
+  // measure a 0x0 container and the saved map came out blank/misplaced.
+  const printReportEl = document.getElementById('printReport');
+  if (printReportEl) printReportEl.classList.add('is-exporting');
 
   // Give the browser a frame to lay out the summary, then relocate the
   // real map into it — and actually wait until its tiles/pins have loaded
