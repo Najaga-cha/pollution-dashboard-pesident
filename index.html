@@ -147,16 +147,10 @@ main.content{flex:1; min-width:0; padding:20px 24px 60px;}
   background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
   box-shadow:var(--shadow); padding:16px 20px 18px; margin-bottom:18px;
 }
-.filter-row{display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr 1fr 1fr; gap:14px; margin-bottom:14px;}
+.filter-row{display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr 1fr 1fr 1fr; gap:14px; margin-bottom:14px;}
 .filter-row2{display:grid; grid-template-columns:1fr 1fr auto auto; gap:14px; align-items:end;}
 .field-group{display:flex; flex-direction:column; gap:6px; min-width:0;}
 .field-label{font-size:11.5px; color:var(--ink-soft); font-weight:500;}
-/* Quick-access size filter, sits above the main filter card so it's
-   reachable without opening the full filter panel. Uses the same
-   checkbox-list ms-select dropdown as the other multi-value filters
-   (see createMultiSelect()), just placed and sized on its own. */
-.quick-filter-row{display:flex; align-items:flex-end; gap:14px; margin-bottom:14px;}
-.quick-size-filter{width:240px;}
 .field-input, select.field-input{
   font-family:var(--font-body); font-size:13px; color:var(--ink);
   background:var(--bg); border:1px solid var(--line); border-radius:9px;
@@ -170,7 +164,17 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .search-field{position:relative;}
 .search-field svg{position:absolute; right:11px; left:auto; top:50%; transform:translateY(-50%); width:15px; height:15px; color:var(--ink-faint); pointer-events:none;}
 .search-field input{padding-left:12px; padding-right:34px;}
-
+.size-chip-group{display:flex; gap:6px;}
+.size-chip{
+  flex:1; border:1px solid transparent; background:var(--bg); border-radius:9px;
+  padding:9px 0; text-align:center; font-size:12.5px; font-weight:700; cursor:pointer; color:var(--ink-soft);
+  transition:all .15s ease;
+}
+.size-chip[data-v="ก"]{background:var(--green-soft); color:var(--green);}
+.size-chip[data-v="ข"]{background:var(--blue-soft); color:var(--blue);}
+.size-chip[data-v="ค"]{background:var(--amber-soft); color:#8a6608;}
+.size-chip[data-v="ง"]{background:var(--purple-soft); color:var(--purple);}
+.size-chip.active{box-shadow:inset 0 0 0 2px currentColor;}
 .filter-actions{display:flex; align-items:center; gap:10px; justify-content:flex-end;}
 .btn-clear{
   display:inline-flex; align-items:center; gap:7px; background:var(--card); color:var(--ink-soft);
@@ -444,6 +448,27 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
   header.topbar, .app-shell, .modal-backdrop{ display:none !important; }
   body{ margin:0; background:#fff; }
   .print-report{ display:flex; position:static; left:auto; z-index:auto; }
+  /* Bug fix: Leaflet fades tiles in via a CSS opacity transition and,
+     depending on browser, positions panes/tiles with CSS3 transforms
+     (translate3d). Chrome/Firefox's print/save-as-PDF renderer can catch
+     the tile layer mid-transition or fail to rasterize the transform-based
+     panes, so the printed map came out blank even though it was fully
+     loaded on screen a moment earlier. Forcing full opacity and turning
+     off transitions/animations for the print pass (moveMapForPrint() also
+     temporarily disables L.Browser.any3d, see below) makes sure the tiles
+     and markers are captured in their final, visible state. */
+  .print-report .leaflet-tile,
+  .print-report .leaflet-marker-icon,
+  .print-report .leaflet-marker-shadow,
+  .print-report .leaflet-image-layer,
+  .print-report .leaflet-zoom-animated{
+    opacity:1 !important;
+    transition:none !important;
+    animation:none !important;
+  }
+  .print-report .leaflet-fade-anim .leaflet-tile{ opacity:1 !important; }
+  .print-report .leaflet-pane,
+  .print-report .leaflet-tile-container{ transition:none !important; }
 }
 
 .pr-header{ display:flex; justify-content:space-between; align-items:flex-end; border-bottom:0.6mm solid var(--navy); padding-bottom:3mm; margin-bottom:5mm; }
@@ -663,13 +688,6 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
     <section id="sec-overview">
       <div class="kpi-row" id="kpiRow"></div>
 
-      <div class="quick-filter-row">
-        <div class="field-group quick-size-filter">
-          <span class="field-label">ขนาดของแหล่ง</span>
-          <div class="ms-select" id="fSize"></div>
-        </div>
-      </div>
-
       <div class="filter-card">
         <div class="filter-row">
           <div class="field-group search-field">
@@ -682,6 +700,16 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
           <div class="field-group">
             <span class="field-label">ประเภทแหล่ง</span>
             <div class="ms-select" id="fType"></div>
+          </div>
+          <div class="field-group">
+            <span class="field-label">ขนาดของแหล่ง</span>
+            <div class="ms-select" id="fSizeDropdown"></div>
+            <div class="size-chip-group" id="fSize">
+              <div class="size-chip" data-v="ก">ก</div>
+              <div class="size-chip" data-v="ข">ข</div>
+              <div class="size-chip" data-v="ค">ค</div>
+              <div class="size-chip" data-v="ง">ง</div>
+            </div>
           </div>
           <div class="field-group">
             <span class="field-label">เขต / อำเภอ</span>
@@ -1092,7 +1120,6 @@ document.addEventListener('click', closeAllMultiSelects);
 document.addEventListener('keydown', e=>{ if (e.key === 'Escape') closeAllMultiSelects(); });
 
 function initMultiSelects(){
-  createMultiSelect('fSize', 'เลือกขนาด');
   createMultiSelect('fType', 'เลือกประเภท');
   createMultiSelect('fDistrict', 'เลือกเขต/อำเภอ');
   createMultiSelect('fSewer', 'เลือกทั้งหมด');
@@ -1100,9 +1127,26 @@ function initMultiSelects(){
   createMultiSelect('fEnforce', 'เลือกทั้งหมด');
   createMultiSelect('fYear', 'เลือกปีงบประมาณ');
   createMultiSelect('fProject', 'เลือกโครงการ');
-  msOptions['fSize'] = [{value:'ก', label:'ขนาด ก'}, {value:'ข', label:'ขนาด ข'}, {value:'ค', label:'ขนาด ค'}, {value:'ง', label:'ขนาด ง'}];
   msOptions['fSewer'] = [{value:'yes', label:'เชื่อมท่อ'}, {value:'no', label:'ไม่เชื่อมท่อ'}];
   msOptions['fStatus'] = [{value:'ok', label:'ปฏิบัติถูกต้อง'}, {value:'partial', label:'ปฏิบัติไม่ครบถ้วน'}, {value:'bad', label:'ไม่ปฏิบัติ'}];
+
+  // "ขนาดของแหล่ง" filter: a dropdown (consistent with the other filters)
+  // paired with the colored quick-select chips underneath it. Both controls
+  // read/write the same msState['fSizeDropdown'] set, so ticking a box in
+  // the dropdown or clicking a chip stay in sync with each other.
+  createMultiSelect('fSizeDropdown', 'เลือกขนาด');
+  msOptions['fSizeDropdown'] = [
+    {value:'ก', label:'ก'}, {value:'ข', label:'ข'}, {value:'ค', label:'ค'}, {value:'ง', label:'ง'}
+  ];
+}
+
+// Keeps the size-chip highlighting in sync with msState['fSizeDropdown'],
+// whichever control (dropdown checkboxes or chips) last changed it.
+function syncSizeChips(){
+  const selected = msState['fSizeDropdown'] || new Set();
+  document.querySelectorAll('#fSize .size-chip').forEach(chip=>{
+    chip.classList.toggle('active', selected.has(chip.dataset.v));
+  });
 }
 
 function buildFilterOptions(){
@@ -1119,7 +1163,7 @@ function getFilters(){
   return {
     search: document.getElementById('fSearch').value.trim().toLowerCase(),
     type: getMsValues('fType').map(v=>v.toLowerCase()),
-    size: getMsValues('fSize'),
+    size: getMsValues('fSizeDropdown'),
     district: getMsValues('fDistrict').map(v=>v.toLowerCase()),
     sewer: getMsValues('fSewer'),
     status: getMsValues('fStatus'),
@@ -1130,6 +1174,7 @@ function getFilters(){
 }
 
 function applyFilters(){
+  syncSizeChips();
   const f = getFilters();
   FILTERED = ALL.filter(r=>{
     if (f.search && !String(r.n||'').toLowerCase().includes(f.search)) return false;
@@ -1165,9 +1210,20 @@ function attachFilterEvents(){
   });
   document.getElementById('fSearch').addEventListener('keydown', e=>{ if(e.key==='Enter'){ clearTimeout(searchDebounce); applyFilters(); } });
 
+  // Size chips now toggle independently, so more than one size can be active
+  // at once. They share state with the "เลือกขนาด" dropdown above them
+  // (msState['fSizeDropdown']), so either control can be used interchangeably.
+  document.getElementById('fSize').addEventListener('click', e=>{
+    const chip = e.target.closest('.size-chip'); if(!chip) return;
+    const v = chip.dataset.v;
+    const set = msState['fSizeDropdown'];
+    if (set.has(v)) set.delete(v); else set.add(v);
+    updateMsTrigger('fSizeDropdown');
+    applyFilters();
+  });
   document.getElementById('resetFilters').addEventListener('click', ()=>{
     document.getElementById('fSearch').value = '';
-    ['fSize','fType','fDistrict','fSewer','fStatus','fEnforce','fYear','fProject'].forEach(clearMs);
+    ['fType','fDistrict','fSewer','fStatus','fEnforce','fYear','fProject','fSizeDropdown'].forEach(clearMs);
     applyFilters();
   });
 }
@@ -1869,12 +1925,25 @@ function prDot(color, label){
 let printMapWrapEl = null;
 let printMapOriginalParent = null;
 let printMapOriginalNext = null;
-// Remembers the live dashboard's pan/zoom just before moveMapForPrint()
-// re-frames the (shared, not cloned) Leaflet instance to fit the print
-// layout — so restoreMapAfterPrint() can put the dashboard's map back the
-// way the person had it, instead of leaving it at the print-fitted view.
-let savedMapCenter = null;
-let savedMapZoom = null;
+// Bug fix ("map resets every time I download"): moveMapForPrint() used to
+// fitBounds() the live map to the full filtered extent so the printed page
+// shows everything, but it never remembered what the user had been looking
+// at on screen — so after every export the on-screen map was left panned/
+// zoomed to that print view instead of snapping back to where the person
+// had it. These remember the pre-export view so restoreMapAfterPrint() can
+// put it back exactly.
+let printMapPrevCenter = null;
+let printMapPrevZoom = null;
+// Bug fix ("map doesn't show up in the PDF"): Leaflet positions its tile/
+// marker panes using CSS3 transforms (translate3d) whenever the browser
+// supports them, and fades tiles in via a CSS opacity transition. Chrome/
+// Firefox's print-to-PDF renderer frequently fails to rasterize those
+// transform-positioned panes, or catches the fade transition mid-flight —
+// so the map looked fine on screen but came out blank in the saved PDF.
+// Forcing Leaflet into its non-3D (top/left) positioning mode just for the
+// export, then re-measuring the view, sidesteps that rendering gap; it's
+// restored to normal afterwards so on-screen panning/zooming stays smooth.
+let printMapPrevAny3d = null;
 
 // Resolves once the tile layer fires 'load' (all tiles for the current
 // view finished loading), or after maxWaitMs — whichever comes first — so
@@ -1895,13 +1964,13 @@ function moveMapForPrint(){
     const slot = document.getElementById('prMapSlot');
     const listFallback = document.getElementById('prMapList');
     if (!wrap || !slot){ resolve(); return; }
-    // Capture the dashboard's current view before it's re-framed below —
-    // this is what gets restored once printing/saving is done, so the
-    // person's own pan/zoom (or the view fitted to their current filter
-    // selection) isn't lost/reset by the print-sized fitBounds() call.
     if (mapInstance){
-      savedMapCenter = mapInstance.getCenter();
-      savedMapZoom = mapInstance.getZoom();
+      printMapPrevCenter = mapInstance.getCenter();
+      printMapPrevZoom = mapInstance.getZoom();
+    }
+    if (window.L && L.Browser){
+      printMapPrevAny3d = L.Browser.any3d;
+      L.Browser.any3d = false;
     }
     printMapWrapEl = wrap;
     printMapOriginalParent = wrap.parentElement;
@@ -1920,8 +1989,12 @@ function moveMapForPrint(){
       mapInstance.invalidateSize({ animate:false });
       if (lastFitBounds){ try{ mapInstance.fitBounds(lastFitBounds, { padding:[4,4], animate:false }); }catch(e){} }
       // Give the (now correctly-sized) map a real chance to fetch and paint
-      // its tiles before the print snapshot is taken.
-      waitForMapTilesReady(1800).then(resolve);
+      // its tiles before the print snapshot is taken, then a short settle
+      // delay so any in-flight tile fade/zoom transition finishes — without
+      // it, tiles that finished loading a moment before the snapshot could
+      // still be mid fade-in (effectively invisible) when window.print()
+      // captures the page.
+      waitForMapTilesReady(1800).then(()=> setTimeout(resolve, 350));
     });
   });
 }
@@ -1932,6 +2005,10 @@ function restoreMapAfterPrint(){
   // stay rendered off-screen indefinitely.
   const printReportEl = document.getElementById('printReport');
   if (printReportEl) printReportEl.classList.remove('is-exporting');
+  if (window.L && L.Browser && printMapPrevAny3d !== null){
+    L.Browser.any3d = printMapPrevAny3d;
+    printMapPrevAny3d = null;
+  }
   if (!printMapWrapEl || !printMapOriginalParent) return;
   if (printMapOriginalNext && printMapOriginalNext.parentElement === printMapOriginalParent){
     printMapOriginalParent.insertBefore(printMapWrapEl, printMapOriginalNext);
@@ -1944,13 +2021,12 @@ function restoreMapAfterPrint(){
   requestAnimationFrame(()=>{
     if (!mapInstance) return;
     mapInstance.invalidateSize();
-    // Put the dashboard's view back the way it was before export re-framed
-    // it for the print layout (see moveMapForPrint()), so the map doesn't
-    // appear to "reset" once the save/print dialog closes.
-    if (savedMapCenter){
-      mapInstance.setView(savedMapCenter, savedMapZoom, { animate:false });
-      savedMapCenter = null; savedMapZoom = null;
+    // Put the on-screen map back exactly how the user left it, rather than
+    // leaving it on the "fit everything" view used for the print page.
+    if (printMapPrevCenter && printMapPrevZoom != null){
+      mapInstance.setView(printMapPrevCenter, printMapPrevZoom, { animate:false });
     }
+    printMapPrevCenter = null; printMapPrevZoom = null;
   });
 }
 
