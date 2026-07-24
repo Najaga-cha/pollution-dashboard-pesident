@@ -272,7 +272,8 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
      so it can never escape and paint over the sticky header or other UI while scrolling */
 }
 .map-panel.is-fullscreen{
-  position:fixed; inset:0; z-index:200; padding:16px 18px;
+  position:fixed; top:0; left:0; right:0; bottom:0; width:100%; height:100%;
+  z-index:200; padding:16px 18px;
   border-radius:0; box-shadow:none; background:var(--card);
   display:flex; flex-direction:column;
 }
@@ -286,7 +287,18 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .map-panel.is-fullscreen .map-canvas-wrap{flex:1; min-height:0; display:flex; flex-direction:column;}
 .map-panel.is-fullscreen #mapview{height:auto; flex:1; min-height:0;}
 .map-panel.is-fullscreen .map-legend{left:22px; right:auto; bottom:24px; max-height:calc(100% - 48px); overflow-y:auto;}
-.map-scrim{display:none; position:fixed; inset:0; background:rgba(10,18,36,.45); z-index:190;}
+.map-scrim{display:none; position:fixed; top:0; left:0; right:0; bottom:0; width:100%; height:100%; background:rgba(10,18,36,.45); z-index:190;}
+/* Bug fix: .map-panel.is-fullscreen uses position:fixed, which takes it
+   completely out of .insight-row's grid flow. Its siblings (the donut
+   card group and Top 5 panel) would then reflow to fill the vacated grid
+   cell — on any screen at or under 1180px wide, .donut-card-group has an
+   explicit grid-column:span 2, so it jumps up to render as a prominent
+   full-width row right where the map used to be, which looks exactly like
+   "expanding the map" replaced it with the donut charts. Hiding the other
+   panels while the map is fullscreen (it already covers the whole viewport
+   anyway) stops them from reflowing into that space. */
+.insight-row.map-fullscreen-active > .donut-card-group,
+.insight-row.map-fullscreen-active > .top5-panel{ display:none !important; }
 .map-scrim.show{display:block;}
 .map-empty-note{
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:401;
@@ -1402,12 +1414,41 @@ function makeDonut(canvasId, labels, data, colors){
     return;
   }
   destroyChart(canvasId);
+  const total = data.reduce((a,b)=>a+(b||0), 0);
+  // Bug fix: a slice under ~1.5% of the total (e.g. 8 out of 2,471) can end
+  // up entirely swallowed by its own border and effectively disappear from
+  // the ring, even though the legend/tooltip next to it are correct. Boost
+  // any non-zero slice up to a minimum visible width for RENDERING only,
+  // scaling the rest down proportionally so the ring still sums to 100% —
+  // the legend and tooltip below still show the true counts/percentages.
+  const MIN_FRACTION = 0.015;
+  let displayData = data;
+  if (total > 0){
+    const boosted = data.map(v=> v>0 ? Math.max(v, total*MIN_FRACTION) : 0);
+    const boostedTotal = boosted.reduce((a,b)=>a+b, 0);
+    if (boostedTotal > total){
+      const scale = total / boostedTotal;
+      displayData = boosted.map(v=> v*scale);
+    }
+  }
   charts[canvasId] = new Chart(document.getElementById(canvasId), {
     type:'doughnut',
-    data:{ labels, datasets:[{ data, backgroundColor:colors, borderWidth:2, borderColor:'#fff' }] },
+    data:{ labels, datasets:[{ data: displayData, backgroundColor:colors, borderWidth:1.5, borderColor:'#fff' }] },
     options:{
       responsive:true, maintainAspectRatio:true, cutout:'66%',
-      plugins:{ legend:{display:false}, tooltip:{enabled:true} },
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          enabled:true,
+          callbacks:{
+            label: (ctx)=>{
+              const real = data[ctx.dataIndex] || 0;
+              const pct = total ? Math.round(real/total*1000)/10 : 0;
+              return ctx.label + ': ' + real.toLocaleString('th-TH') + ' (' + pct + '%)';
+            }
+          }
+        }
+      },
     }
   });
 }
@@ -1679,6 +1720,11 @@ function setMapFullscreen(goingFullscreen){
     scrim.addEventListener('click', ()=> setMapFullscreen(false));
   }
   panel.classList.toggle('is-fullscreen', goingFullscreen);
+  // Keep the map's grid siblings (donut cards, Top 5 panel) from reflowing
+  // into the cell it vacates once it becomes position:fixed — see the CSS
+  // comment above .insight-row.map-fullscreen-active for why this matters.
+  const insightRow = panel.closest('.insight-row');
+  if (insightRow) insightRow.classList.toggle('map-fullscreen-active', goingFullscreen);
   scrim.classList.toggle('show', goingFullscreen);
   if (btn){
     btn.title = goingFullscreen ? 'ย่อแผนที่กลับ' : 'ขยายแผนที่เต็มจอ';
