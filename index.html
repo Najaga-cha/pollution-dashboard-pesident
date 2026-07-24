@@ -1003,12 +1003,11 @@ const EMBEDDED_DATA = {"cols":["n","t","c","a","o","s","d","p","w","y","j","st",
 
 const SIZE_LABEL = { 'ก':'sz-k', 'ข':'sz-kh', 'ค':'sz-kk', 'ง':'sz-ng' };
 const ENFORCE_COLORS = {
-  'อยู่ระหว่างแนะนำ':'#2B63E0',
-  'ออกคำสั่งทางปกครอง':'#E6A417',
-  'ดำเนินคดีแล้ว':'#E0452F',
-  'อื่นๆ':'#94A0B4',
+  'ปฏิบัติตามกฎหมาย':'#1AA36A',
+  'ไม่ปฏิบัติตามกฎหมาย':'#E0452F',
+  'เก็บตัวอย่างน้ำทิ้งไม่ได้':'#E6A417',
 };
-const ENFORCE_ORDER = ['อยู่ระหว่างแนะนำ','ออกคำสั่งทางปกครอง','ดำเนินคดีแล้ว','อื่นๆ'];
+const ENFORCE_ORDER = ['ปฏิบัติตามกฎหมาย','ไม่ปฏิบัติตามกฎหมาย','เก็บตัวอย่างน้ำทิ้งไม่ได้'];
 const COMPLY_COLORS = { 'ok':'#1AA36A', 'partial':'#E6A417', 'bad':'#E0452F' };
 const COMPLY_LABEL = { 'ok':'ปฏิบัติถูกต้อง', 'partial':'ปฏิบัติไม่ครบถ้วน', 'bad':'ไม่ปฏิบัติ' };
 
@@ -1077,16 +1076,19 @@ function complyBucket(row){
 }
 function enforceBucket(row){
   const e = normText(row.e);
-  if (!e) return 'อื่นๆ';
   // Exact match against the canonical labels first...
   const exact = ENFORCE_ORDER.find(k=> normText(k) === e);
   if (exact) return exact;
   // ...then keyword fallback for real-world variants (extra wording, spacing,
-  // or slightly different phrasing) so data doesn't silently pile up in "อื่นๆ".
-  if (e.includes('ดำเนินคดี') || e.includes('ฟ้องร้อง')) return 'ดำเนินคดีแล้ว';
-  if (e.includes('คำสั่ง')) return 'ออกคำสั่งทางปกครอง';
-  if (e.includes('แนะนำ') || e.includes('ตักเตือน') || e.includes('ตรวจสอบ')) return 'อยู่ระหว่างแนะนำ';
-  return 'อื่นๆ';
+  // or slightly different phrasing) so data doesn't silently pile up wrong.
+  if (e){
+    if (e.includes('เก็บตัวอย่าง') && (e.includes('ไม่ได้') || e.includes('ไม่ได')) ) return 'เก็บตัวอย่างน้ำทิ้งไม่ได้';
+    if (e.includes('ไม่ปฏิบัติ') || e.includes('ไม่ผ่าน') || e.includes('ฝ่าฝืน')) return 'ไม่ปฏิบัติตามกฎหมาย';
+    if (e.includes('ปฏิบัติ') && e.includes('ตามกฎหมาย')) return 'ปฏิบัติตามกฎหมาย';
+  }
+  // No usable text in the enforcement-status field: fall back to the
+  // boolean compliance flag so every row still lands in a real bucket.
+  return row.c ? 'ปฏิบัติตามกฎหมาย' : 'ไม่ปฏิบัติตามกฎหมาย';
 }
 
 function loadData(payload, sourceLabel){
