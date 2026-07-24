@@ -951,24 +951,12 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
     <h3>เชื่อมต่อ Google Sheet</h3>
     <label for="gsheetUrlInput">ลิงก์ Google Sheet (แบบเปิดสาธารณะ)</label>
     <input type="text" id="gsheetUrlInput" placeholder="วางลิงก์ https://docs.google.com/spreadsheets/d/...">
-
-    <label for="gsheetTabSelect">เลือกหน้าชีท (แท็บ)</label>
-    <div style="display:flex; gap:8px; align-items:center;">
-      <select id="gsheetTabSelect" style="flex:1; height:34px; border:1px solid var(--line); border-radius:8px; background:var(--card); font-size:12.5px; padding:0 8px;">
-        <option value="">ชีทแรก (ค่าเริ่มต้น)</option>
-        <option value="__custom__">พิมพ์ชื่อชีทเอง...</option>
-      </select>
-      <button type="button" id="gsheetFetchTabsBtn" style="white-space:nowrap; font-size:11.5px; color:var(--blue); background:none; border:1px solid var(--line); border-radius:8px; padding:0 10px; height:34px; cursor:pointer;">ดึงรายชื่อชีท</button>
-    </div>
-    <input type="text" id="gsheetTabCustomInput" placeholder="พิมพ์ชื่อแท็บ เช่น ชีท2 หรือ Sheet2" hidden style="margin-top:8px;">
-
-    <label for="gsheetApiKeyInput">Google API Key (ไม่บังคับ — ใส่เพื่อให้กดปุ่ม "ดึงรายชื่อชีท" แล้วเลือกจาก dropdown ได้อัตโนมัติ)</label>
-    <input type="text" id="gsheetApiKeyInput" placeholder="วาง API key แบบอ่านอย่างเดียว (ไม่ใส่ก็ได้ ใช้ตัวเลือก &quot;พิมพ์ชื่อชีทเอง&quot; แทน)">
-
+    <label for="gsheetTabInput">เลือกหน้าชีท (ชื่อแท็บ) — ไม่ระบุ = ใช้ชีทแรก</label>
+    <input type="text" id="gsheetTabInput" placeholder="เช่น ชีท2 หรือ Sheet2 (เว้นว่างไว้เพื่อใช้ชีทแรกโดยอัตโนมัติ)">
     <div class="gsheet-hint">
       1) เปิดไฟล์ใน Google Sheets → กด Share → เปลี่ยนสิทธิ์เป็น "Anyone with the link" (Viewer)<br>
       2) คัดลอกลิงก์จาก address bar มาวางด้านบน<br>
-      3) หากต้องการดึงข้อมูลเฉพาะบางหน้าชีท: มี API key → วางแล้วกด "ดึงรายชื่อชีท" เพื่อเลือกจาก dropdown, หรือไม่มีก็เลือก "พิมพ์ชื่อชีทเอง" แล้วพิมพ์ชื่อแท็บให้ตรงกับที่แสดงใน Google Sheet ทุกตัวอักษร — ไม่เลือกอะไรเลย = ใช้ชีทแรก<br>
+      3) หากต้องการดึงข้อมูลเฉพาะบางหน้าชีท ให้พิมพ์ชื่อแท็บนั้น (ตรงตามที่แสดงในแท็บด้านล่างของ Google Sheet ทุกตัวอักษร) ลงในช่อง "เลือกหน้าชีท" — เว้นว่างไว้หากต้องการใช้ชีทแรก<br>
       4) กด "เชื่อมต่อ &amp; ดึงข้อมูล" — ระบบจะดึงเฉพาะข้อมูลของชีทที่เลือกเท่านั้น และรีเฟรชอัตโนมัติตามชีทเดิมทุกครั้ง
     </div>
     <div class="gsheet-actions">
@@ -1903,96 +1891,21 @@ function setGsheetAutoRefresh(on, ms){
   } else if (label) label.textContent = 'รีเฟรชอัตโนมัติ: ปิด';
   if (gsheetConfig){ gsheetConfig.autoRefresh = on; gsheetConfig.refreshMs = ms; saveGsheetConfig(gsheetConfig); }
 }
-// Fetches the list of tab (sheet) names for the spreadsheet using the
-// official Sheets API v4 metadata endpoint. Requires a (free, read-only)
-// Google API key since this endpoint isn't fetchable cross-origin without one.
-async function fetchSheetTabList(spreadsheetId, apiKey){
-  const url = 'https://sheets.googleapis.com/v4/spreadsheets/' + encodeURIComponent(spreadsheetId)
-    + '?fields=sheets.properties.title&key=' + encodeURIComponent(apiKey);
-  const res = await fetchWithTimeout(url, 12000);
-  if (!res.ok){
-    let reason = 'เซิร์ฟเวอร์ตอบกลับรหัส ' + res.status;
-    try{ const j = await res.json(); if (j && j.error && j.error.message) reason = j.error.message; }catch(e){}
-    throw new Error(reason);
-  }
-  const data = await res.json();
-  const sheets = (data && data.sheets) || [];
-  return sheets.map(s=> s.properties && s.properties.title).filter(Boolean);
-}
 function initGsheetConnect(){
   const modal = document.getElementById('gsheetModal');
   const urlInput = document.getElementById('gsheetUrlInput');
-  const tabSelect = document.getElementById('gsheetTabSelect');
-  const tabCustomInput = document.getElementById('gsheetTabCustomInput');
-  const apiKeyInput = document.getElementById('gsheetApiKeyInput');
+  const tabInput = document.getElementById('gsheetTabInput');
   const openBtns = [document.getElementById('gsheetOpenBtn'), document.getElementById('settingsAvatarBtn'), document.getElementById('navSettings')];
   openBtns.forEach(b=> b && b.addEventListener('click', ()=>{ modal.hidden = false; }));
   document.getElementById('gsheetCloseBtn').addEventListener('click', ()=>{ modal.hidden = true; });
   modal.addEventListener('click', e=>{ if (e.target === modal) modal.hidden = true; });
 
-  // Resolves the sheet name currently chosen in the UI: '' means "first
-  // sheet", the select's value means a fetched tab name was picked, and
-  // '__custom__' means fall back to whatever was typed in the free-text box.
-  function currentSheetName(){
-    if (tabSelect.value === '__custom__') return tabCustomInput.value.trim();
-    return tabSelect.value;
-  }
-  function setSheetSelection(sheetName, knownTabs){
-    // Rebuilds the dropdown (keeping the fixed first/custom options) so a
-    // previously-fetched or saved tab list still shows the right choice.
-    tabSelect.innerHTML = '';
-    const optFirst = new Option('ชีทแรก (ค่าเริ่มต้น)', '');
-    tabSelect.add(optFirst);
-    (knownTabs||[]).forEach(name=> tabSelect.add(new Option(name, name)));
-    tabSelect.add(new Option('พิมพ์ชื่อชีทเอง...', '__custom__'));
-    if (sheetName && knownTabs && knownTabs.includes(sheetName)){
-      tabSelect.value = sheetName;
-      tabCustomInput.hidden = true;
-    } else if (sheetName){
-      tabSelect.value = '__custom__';
-      tabCustomInput.hidden = false;
-      tabCustomInput.value = sheetName;
-    } else {
-      tabSelect.value = '';
-      tabCustomInput.hidden = true;
-    }
-  }
-  setSheetSelection('', []);
-
-  tabSelect.addEventListener('change', ()=>{
-    tabCustomInput.hidden = (tabSelect.value !== '__custom__');
-    if (!tabCustomInput.hidden) tabCustomInput.focus();
-  });
-
-  document.getElementById('gsheetFetchTabsBtn').addEventListener('click', async ()=>{
-    const raw = urlInput.value.trim();
-    const apiKey = apiKeyInput.value.trim();
-    if (!raw){ setGsheetMsg('กรุณาวางลิงก์ Google Sheet ก่อน', 'err'); return; }
-    if (!apiKey){ setGsheetMsg('ต้องมี Google API Key ก่อนถึงจะดึงรายชื่อชีทอัตโนมัติได้ — หรือเลือก "พิมพ์ชื่อชีทเอง" แทน', 'err'); return; }
-    const parsed = parseGsheetInput(raw, '');
-    if (!parsed){ setGsheetMsg('รูปแบบลิงก์ไม่ถูกต้อง', 'err'); return; }
-    setGsheetMsg('กำลังดึงรายชื่อชีท...', '');
-    try{
-      const tabs = await fetchSheetTabList(parsed.id, apiKey);
-      if (!tabs.length) throw new Error('ไม่พบรายชื่อชีทในไฟล์นี้');
-      const currentPick = currentSheetName();
-      setSheetSelection(currentPick, tabs);
-      setGsheetMsg('พบ ' + tabs.length + ' ชีท เลือกได้จาก dropdown ด้านบนแล้ว', 'ok');
-    }catch(err){
-      setGsheetMsg('ดึงรายชื่อชีทไม่สำเร็จ: ' + err.message, 'err');
-    }
-  });
-
   document.getElementById('gsheetConnectBtn').addEventListener('click', async ()=>{
     const raw = urlInput.value.trim();
-    const sheetName = currentSheetName();
+    const sheetName = tabInput.value.trim();
     if (!raw){ setGsheetMsg('กรุณาวางลิงก์ Google Sheet ก่อน', 'err'); return; }
     const success = await connectGsheet(raw, sheetName);
-    if (success){
-      const knownTabs = Array.from(tabSelect.options).map(o=>o.value).filter(v=> v && v !== '__custom__');
-      gsheetConfig = { raw, sheetName, apiKey: apiKeyInput.value.trim(), knownTabs, autoRefresh:false, refreshMs:REFRESH_MS };
-      saveGsheetConfig(gsheetConfig);
-    }
+    if (success){ gsheetConfig = { raw, sheetName, autoRefresh:false, refreshMs:REFRESH_MS }; saveGsheetConfig(gsheetConfig); }
   });
   document.getElementById('gsheetRefreshToggleBtn').addEventListener('click', ()=>{
     if (!gsheetConfig) return;
@@ -2011,13 +1924,12 @@ function initGsheetConnect(){
   const saved = loadGsheetConfig();
   if (saved && saved.raw){
     urlInput.value = saved.raw;
-    apiKeyInput.value = saved.apiKey || '';
-    setSheetSelection(saved.sheetName || '', saved.knownTabs || []);
+    tabInput.value = saved.sheetName || '';
     gsheetConfig = saved;
     connectGsheet(saved.raw, saved.sheetName, {silent:true}).then(ok=>{ if (ok && saved.autoRefresh) setGsheetAutoRefresh(true, saved.refreshMs || REFRESH_MS); });
   } else if (DEFAULT_GSHEET_URL){
     urlInput.value = DEFAULT_GSHEET_URL;
-    gsheetConfig = { raw: DEFAULT_GSHEET_URL, sheetName:'', apiKey:'', knownTabs:[], autoRefresh:true, refreshMs:REFRESH_MS };
+    gsheetConfig = { raw: DEFAULT_GSHEET_URL, sheetName:'', autoRefresh:true, refreshMs:REFRESH_MS };
     connectGsheet(DEFAULT_GSHEET_URL, '', {silent:true}).then(ok=>{
       if (ok){ saveGsheetConfig(gsheetConfig); setGsheetAutoRefresh(true, REFRESH_MS); }
     });
