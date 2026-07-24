@@ -951,10 +951,13 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
     <h3>เชื่อมต่อ Google Sheet</h3>
     <label for="gsheetUrlInput">ลิงก์ Google Sheet (แบบเปิดสาธารณะ)</label>
     <input type="text" id="gsheetUrlInput" placeholder="วางลิงก์ https://docs.google.com/spreadsheets/d/...">
+    <label for="gsheetTabInput">เลือกหน้าชีท (ชื่อแท็บ) — ไม่ระบุ = ใช้ชีทแรก</label>
+    <input type="text" id="gsheetTabInput" placeholder="เช่น ชีท2 หรือ Sheet2 (เว้นว่างไว้เพื่อใช้ชีทแรกโดยอัตโนมัติ)">
     <div class="gsheet-hint">
       1) เปิดไฟล์ใน Google Sheets → กด Share → เปลี่ยนสิทธิ์เป็น "Anyone with the link" (Viewer)<br>
       2) คัดลอกลิงก์จาก address bar มาวางด้านบน<br>
-      3) ระบบจะดึงข้อมูลจากชีตนี้โดยตรงและรีเฟรชอัตโนมัติ
+      3) หากต้องการดึงข้อมูลเฉพาะบางหน้าชีท ให้พิมพ์ชื่อแท็บนั้น (ตรงตามที่แสดงในแท็บด้านล่างของ Google Sheet ทุกตัวอักษร) ลงในช่อง "เลือกหน้าชีท" — เว้นว่างไว้หากต้องการใช้ชีทแรก<br>
+      4) กด "เชื่อมต่อ &amp; ดึงข้อมูล" — ระบบจะดึงเฉพาะข้อมูลของชีทที่เลือกเท่านั้น และรีเฟรชอัตโนมัติตามชีทเดิมทุกครั้ง
     </div>
     <div class="gsheet-actions">
       <button class="btn-search" id="gsheetConnectBtn" type="button" style="flex:1; justify-content:center;">เชื่อมต่อ &amp; ดึงข้อมูล</button>
@@ -1782,35 +1785,44 @@ function saveGsheetConfig(cfg){ try{ localStorage.setItem(LS_GSHEET, JSON.string
 function loadGsheetConfig(){ try{ const s = localStorage.getItem(LS_GSHEET); return s?JSON.parse(s):null; }catch(e){ return null; } }
 function clearGsheetConfig(){ try{ localStorage.removeItem(LS_GSHEET); }catch(e){} }
 
-function parseGsheetInput(raw){
+function parseGsheetInput(raw, sheetName){
   raw = (raw||'').trim();
   if (!raw) return null;
   let gid = '0';
   const gidMatch = raw.match(/[#&?]gid=([0-9]+)/);
   if (gidMatch) gid = gidMatch[1];
+  sheetName = (sheetName||'').trim() || null;
   const pubMatch = raw.match(/\/spreadsheets\/d\/e\/([a-zA-Z0-9-_]+)/);
-  if (pubMatch) return { published:true, id:pubMatch[1], gid };
+  if (pubMatch) return { published:true, id:pubMatch[1], gid, sheetName };
   const idMatch = raw.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-  if (idMatch) return { published:false, id:idMatch[1], gid };
-  if (/^[a-zA-Z0-9-_]{20,}$/.test(raw)) return { published:false, id:raw, gid };
+  if (idMatch) return { published:false, id:idMatch[1], gid, sheetName };
+  if (/^[a-zA-Z0-9-_]{20,}$/.test(raw)) return { published:false, id:raw, gid, sheetName };
   return null;
 }
 function buildCsvCandidates(parsed){
   if (!parsed) return [];
+  const sheetQuery = parsed.sheetName ? ('&sheet=' + encodeURIComponent(parsed.sheetName)) : ('&gid=' + parsed.gid);
   if (parsed.published){
-    return [
-      'https://docs.google.com/spreadsheets/d/e/' + parsed.id + '/pub?output=csv&gid=' + parsed.gid,
-      'https://docs.google.com/spreadsheets/d/e/' + parsed.id + '/pub?output=csv',
+    const list = [
+      'https://docs.google.com/spreadsheets/d/e/' + parsed.id + '/pub?output=csv' + sheetQuery,
     ];
+    if (!parsed.sheetName) list.push('https://docs.google.com/spreadsheets/d/e/' + parsed.id + '/pub?output=csv');
+    return list;
   }
   // gviz/tq is tried first: it responds with proper CORS headers for
   // publicly-shared sheets, whereas /export?format=csv can redirect
   // through accounts.google.com (no CORS headers) and hang/fail silently
   // in the browser when the sheet isn't fully public.
-  return [
-    'https://docs.google.com/spreadsheets/d/' + parsed.id + '/gviz/tq?tqx=out:csv&gid=' + parsed.gid,
-    'https://docs.google.com/spreadsheets/d/' + parsed.id + '/export?format=csv&gid=' + parsed.gid,
+  // When a specific tab name is given, use the "sheet" param (gviz supports
+  // selecting a tab by its visible name) instead of the numeric gid, so the
+  // user only needs to type the tab label they see in Google Sheets.
+  const list = [
+    'https://docs.google.com/spreadsheets/d/' + parsed.id + '/gviz/tq?tqx=out:csv' + sheetQuery,
   ];
+  if (!parsed.sheetName){
+    list.push('https://docs.google.com/spreadsheets/d/' + parsed.id + '/export?format=csv' + sheetQuery);
+  }
+  return list;
 }
 function fetchWithTimeout(url, ms){
   const controller = new AbortController();
@@ -1841,9 +1853,9 @@ function setGsheetMsg(msg, cls){
   el.textContent = msg;
   el.className = 'gsheet-msg' + (cls?(' '+cls):'');
 }
-async function connectGsheet(rawUrl, opts){
+async function connectGsheet(rawUrl, sheetName, opts){
   opts = opts || {};
-  const parsed = parseGsheetInput(rawUrl);
+  const parsed = parseGsheetInput(rawUrl, sheetName);
   if (!parsed){ setGsheetMsg('รูปแบบลิงก์ไม่ถูกต้อง กรุณาวางลิงก์ Google Sheet ให้ครบถ้วน', 'err'); return false; }
   if (!opts.silent) setGsheetMsg('กำลังเชื่อมต่อและดึงข้อมูล...', '');
   try{
@@ -1856,7 +1868,8 @@ async function connectGsheet(rawUrl, opts){
     if (!rows.length) throw new Error('ดึงข้อมูลสำเร็จ แต่ไม่พบแถวที่ตรงกับรูปแบบคอลัมน์ที่คาดไว้');
     const payload = { cols:['n','t','c','a','o','s','d','p','w','y','j','st','e'], rows };
     loadData(payload, new Date().toLocaleString('th-TH'));
-    setGsheetMsg('เชื่อมต่อสำเร็จ · ดึงข้อมูล ' + rows.length.toLocaleString('th-TH') + ' รายการ', 'ok');
+    const tabNote = parsed.sheetName ? (' (ชีท "' + parsed.sheetName + '")') : ' (ชีทแรก)';
+    setGsheetMsg('เชื่อมต่อสำเร็จ' + tabNote + ' · ดึงข้อมูล ' + rows.length.toLocaleString('th-TH') + ' รายการ', 'ok');
     document.getElementById('gsheetLiveDot').classList.add('on');
     document.getElementById('gsheetRefreshRow').hidden = false;
     return true;
@@ -1873,7 +1886,7 @@ function setGsheetAutoRefresh(on, ms){
   const label = document.getElementById('gsheetRefreshLabel');
   const btn = document.getElementById('gsheetRefreshToggleBtn');
   if (on){
-    gsheetTimer = setInterval(()=>{ if (gsheetConfig) connectGsheet(gsheetConfig.raw, {silent:true}); }, ms);
+    gsheetTimer = setInterval(()=>{ if (gsheetConfig) connectGsheet(gsheetConfig.raw, gsheetConfig.sheetName, {silent:true}); }, ms);
     if (label) label.textContent = 'รีเฟรชอัตโนมัติ: ทุก ' + Math.round(ms/1000) + ' วินาที';
   } else if (label) label.textContent = 'รีเฟรชอัตโนมัติ: ปิด';
   if (gsheetConfig){ gsheetConfig.autoRefresh = on; gsheetConfig.refreshMs = ms; saveGsheetConfig(gsheetConfig); }
@@ -1881,6 +1894,7 @@ function setGsheetAutoRefresh(on, ms){
 function initGsheetConnect(){
   const modal = document.getElementById('gsheetModal');
   const urlInput = document.getElementById('gsheetUrlInput');
+  const tabInput = document.getElementById('gsheetTabInput');
   const openBtns = [document.getElementById('gsheetOpenBtn'), document.getElementById('settingsAvatarBtn'), document.getElementById('navSettings')];
   openBtns.forEach(b=> b && b.addEventListener('click', ()=>{ modal.hidden = false; }));
   document.getElementById('gsheetCloseBtn').addEventListener('click', ()=>{ modal.hidden = true; });
@@ -1888,15 +1902,16 @@ function initGsheetConnect(){
 
   document.getElementById('gsheetConnectBtn').addEventListener('click', async ()=>{
     const raw = urlInput.value.trim();
+    const sheetName = tabInput.value.trim();
     if (!raw){ setGsheetMsg('กรุณาวางลิงก์ Google Sheet ก่อน', 'err'); return; }
-    const success = await connectGsheet(raw);
-    if (success){ gsheetConfig = { raw, autoRefresh:false, refreshMs:REFRESH_MS }; saveGsheetConfig(gsheetConfig); }
+    const success = await connectGsheet(raw, sheetName);
+    if (success){ gsheetConfig = { raw, sheetName, autoRefresh:false, refreshMs:REFRESH_MS }; saveGsheetConfig(gsheetConfig); }
   });
   document.getElementById('gsheetRefreshToggleBtn').addEventListener('click', ()=>{
     if (!gsheetConfig) return;
     setGsheetAutoRefresh(!gsheetConfig.autoRefresh, gsheetConfig.refreshMs || REFRESH_MS);
   });
-  document.getElementById('gsheetRefreshNowBtn').addEventListener('click', ()=>{ if (gsheetConfig) connectGsheet(gsheetConfig.raw); });
+  document.getElementById('gsheetRefreshNowBtn').addEventListener('click', ()=>{ if (gsheetConfig) connectGsheet(gsheetConfig.raw, gsheetConfig.sheetName); });
   document.getElementById('gsheetDisconnectBtn').addEventListener('click', ()=>{
     setGsheetAutoRefresh(false, REFRESH_MS);
     gsheetConfig = null; clearGsheetConfig();
@@ -1909,12 +1924,13 @@ function initGsheetConnect(){
   const saved = loadGsheetConfig();
   if (saved && saved.raw){
     urlInput.value = saved.raw;
+    tabInput.value = saved.sheetName || '';
     gsheetConfig = saved;
-    connectGsheet(saved.raw, {silent:true}).then(ok=>{ if (ok && saved.autoRefresh) setGsheetAutoRefresh(true, saved.refreshMs || REFRESH_MS); });
+    connectGsheet(saved.raw, saved.sheetName, {silent:true}).then(ok=>{ if (ok && saved.autoRefresh) setGsheetAutoRefresh(true, saved.refreshMs || REFRESH_MS); });
   } else if (DEFAULT_GSHEET_URL){
     urlInput.value = DEFAULT_GSHEET_URL;
-    gsheetConfig = { raw: DEFAULT_GSHEET_URL, autoRefresh:true, refreshMs:REFRESH_MS };
-    connectGsheet(DEFAULT_GSHEET_URL, {silent:true}).then(ok=>{
+    gsheetConfig = { raw: DEFAULT_GSHEET_URL, sheetName:'', autoRefresh:true, refreshMs:REFRESH_MS };
+    connectGsheet(DEFAULT_GSHEET_URL, '', {silent:true}).then(ok=>{
       if (ok){ saveGsheetConfig(gsheetConfig); setGsheetAutoRefresh(true, REFRESH_MS); }
     });
   }
