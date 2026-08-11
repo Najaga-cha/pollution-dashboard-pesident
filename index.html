@@ -13,6 +13,9 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.min.css';" />
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.min.css';" />
 
+<!-- Google Identity Services (Sign in with Google) -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
 <style>
 :root{
   --navy:#122A52;
@@ -49,6 +52,42 @@ body{
 a{color:inherit; text-decoration:none;}
 button{font-family:inherit;}
 ::selection{background:var(--blue); color:#fff;}
+
+/* ================= Login gate (Sign in with Google) ================= */
+body.pre-auth > *:not(#loginGate){ display:none !important; }
+body.pre-auth{ overflow:hidden; }
+#loginGate{
+  position:fixed; inset:0; z-index:9999;
+  background:linear-gradient(160deg,var(--navy),var(--navy-2));
+  display:flex; align-items:center; justify-content:center;
+  padding:24px;
+}
+.login-card{
+  background:var(--card); border-radius:20px; box-shadow:0 24px 60px -20px rgba(8,18,38,.6);
+  padding:40px 36px; max-width:380px; width:100%; text-align:center;
+}
+.login-card .login-logo{ width:64px; height:64px; margin:0 auto 16px; }
+.login-card h2{
+  font-family:var(--font-display); font-size:18px; margin:0 0 6px; color:var(--ink);
+}
+.login-card p{ color:var(--ink-soft); font-size:13px; margin:0 0 22px; line-height:1.6; }
+.login-btn-host{ display:flex; justify-content:center; margin-bottom:18px; min-height:44px; }
+.login-note{ font-size:12px !important; color:var(--ink-faint) !important; margin:0 !important; }
+.login-error{ color:var(--red); font-size:12.5px; margin-top:12px; display:none; }
+.login-error.show{ display:block; }
+
+/* User chip in topbar, shown once signed in */
+.user-chip{
+  display:flex; align-items:center; gap:8px; padding:5px 12px 5px 6px;
+  background:rgba(255,255,255,.1); border-radius:999px; color:#fff; font-size:12.5px;
+}
+.user-chip img{ width:26px; height:26px; border-radius:50%; display:block; background:#fff; }
+.user-chip .user-chip-name{ max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.user-chip .user-chip-signout{
+  border:none; background:rgba(255,255,255,.14); color:#fff; border-radius:999px;
+  padding:4px 10px; font-size:11.5px; cursor:pointer;
+}
+.user-chip .user-chip-signout:hover{ background:rgba(255,255,255,.24); }
 
 /* ================= Topbar ================= */
 header.topbar{
@@ -618,7 +657,17 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
 .pr-footer{ margin-top:auto; padding-top:3mm; font-size:2.1mm; color:var(--ink-faint); text-align:center; }
 </style>
 </head>
-<body>
+<body class="pre-auth">
+<div id="loginGate">
+  <div class="login-card">
+    <svg class="login-logo" viewBox="0 0 24 24" fill="none" stroke="#122A52" stroke-width="1.6"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M8.5 14.5l2.2 2.2 4.3-4.3" stroke="#1AA36A"/></svg>
+    <h2>ระบบติดตามแหล่งกำเนิดมลพิษ</h2>
+    <p>กรุณาเข้าสู่ระบบด้วยบัญชี Google เพื่อเข้าใช้งานแดชบอร์ด</p>
+    <div class="login-btn-host" id="googleSignInBtn"></div>
+    <p class="login-note">ระบบใช้บัญชี Google เพียงเพื่อยืนยันตัวตนผู้เข้าชมเท่านั้น</p>
+    <p class="login-error" id="loginError">เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่</p>
+  </div>
+</div>
 
 <!-- Shown only when saving/printing the report (see exportFullReport() /
      renderPrintSummary()). Rather than trying to shrink the live,
@@ -737,6 +786,7 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
       <button class="avatar-btn" id="settingsAvatarBtn" title="ตั้งค่า / เชื่อมต่อ Google Sheet">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 1 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
       </button>
+      <div class="user-chip" id="userChip" hidden></div>
     </div>
   </div>
 </header>
@@ -2433,6 +2483,127 @@ function init(){
 document.addEventListener('DOMContentLoaded', init);
 })();
 
+</script>
+
+<!-- ============ Sign in with Google (access gate) ============
+     ต้องสร้าง OAuth Client ID ของตัวเองก่อนใช้งานจริง:
+     1) ไปที่ https://console.cloud.google.com/apis/credentials
+     2) สร้าง "OAuth client ID" ประเภท "Web application"
+     3) ใส่โดเมนที่จะโฮสต์ไฟล์นี้ (เช่น https://yourdomain.com หรือ
+        http://localhost:PORT ตอนทดสอบ) ใน "Authorized JavaScript origins"
+        — ต้องเป็น URL ที่เปิดผ่าน http(s) จริง จะเปิดไฟล์ตรงๆ (file://) ไม่ได้
+     4) คัดลอก Client ID มาแทนที่ค่า GOOGLE_CLIENT_ID ด้านล่าง -->
+<script>
+(function(){
+  var GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com'; // TODO: ใส่ Client ID จริง
+  var STORAGE_KEY = 'pollution_dashboard_gauth_user';
+
+  function escAuthHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function parseJwt(token){
+    try{
+      var base64 = token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+      var json = decodeURIComponent(atob(base64).split('').map(function(c){
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(json);
+    }catch(e){ return null; }
+  }
+  function saveUser(u){ try{ sessionStorage.setItem(STORAGE_KEY, JSON.stringify(u)); }catch(e){} }
+  function loadUser(){ try{ var s = sessionStorage.getItem(STORAGE_KEY); return s ? JSON.parse(s) : null; }catch(e){ return null; } }
+  function clearUser(){ try{ sessionStorage.removeItem(STORAGE_KEY); }catch(e){} }
+
+  function renderUserChip(user){
+    var chip = document.getElementById('userChip');
+    if (!chip) return;
+    if (user){
+      chip.hidden = false;
+      chip.innerHTML =
+        (user.picture ? '<img src="' + escAuthHtml(user.picture) + '" alt="">' : '') +
+        '<span class="user-chip-name">' + escAuthHtml(user.name || user.email || '') + '</span>' +
+        '<button type="button" class="user-chip-signout" id="gAuthSignOutBtn">ออกจากระบบ</button>';
+      var btn = document.getElementById('gAuthSignOutBtn');
+      if (btn) btn.addEventListener('click', signOut);
+    } else {
+      chip.hidden = true;
+      chip.innerHTML = '';
+    }
+  }
+
+  function showApp(user){
+    document.body.classList.remove('pre-auth');
+    renderUserChip(user);
+  }
+
+  function showGate(){
+    document.body.classList.add('pre-auth');
+    renderUserChip(null);
+  }
+
+  function signOut(){
+    clearUser();
+    try{
+      if (window.google && google.accounts && google.accounts.id){
+        google.accounts.id.disableAutoSelect();
+      }
+    }catch(e){}
+    showGate();
+  }
+
+  function handleCredentialResponse(response){
+    var errEl = document.getElementById('loginError');
+    var payload = response && response.credential ? parseJwt(response.credential) : null;
+    if (!payload || !payload.email){
+      if (errEl) errEl.classList.add('show');
+      return;
+    }
+    if (errEl) errEl.classList.remove('show');
+    var user = { name: payload.name, email: payload.email, picture: payload.picture };
+    saveUser(user);
+    showApp(user);
+  }
+
+  function initGoogleAuth(){
+    if (!window.google || !google.accounts || !google.accounts.id){
+      setTimeout(initGoogleAuth, 200);
+      return;
+    }
+    if (!GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID.indexOf('YOUR_GOOGLE_CLIENT_ID') === 0){
+      var errEl = document.getElementById('loginError');
+      if (errEl){
+        errEl.textContent = 'ยังไม่ได้ตั้งค่า Google Client ID (แก้ค่า GOOGLE_CLIENT_ID ในโค้ด)';
+        errEl.classList.add('show');
+      }
+      return;
+    }
+    google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleCredentialResponse,
+      auto_select: true
+    });
+    var btnHost = document.getElementById('googleSignInBtn');
+    if (btnHost){
+      google.accounts.id.renderButton(btnHost, {
+        theme: 'outline', size: 'large', shape: 'pill', text: 'signin_with', locale: 'th', width: 280
+      });
+    }
+    // ลองล็อกอินอัตโนมัติแบบเงียบๆ สำหรับผู้ที่เคยล็อกอินไว้แล้วในเบราว์เซอร์นี้
+    try{ google.accounts.id.prompt(); }catch(e){}
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    var saved = loadUser();
+    if (saved && saved.email){
+      showApp(saved);
+    } else {
+      showGate();
+    }
+    initGoogleAuth();
+  });
+})();
 </script>
 </body>
 </html>
