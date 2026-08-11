@@ -1880,11 +1880,17 @@ function setGsheetMsg(msg, cls){
 }
 
 /* ---------------- Sheet-tab list (dropdown instead of free-typed name) ----------------
-   Uses the legacy public "feeds" endpoint, which lists every tab (worksheet)
-   title for a spreadsheet that's shared as "Anyone with the link". It only
-   works for normal /spreadsheets/d/{id}/... links — a "Publish to web"
-   (/d/e/{id}/) link uses a different, non-queryable token, so that case
-   falls back to manual entry. */
+   Google shut down the legacy public "feeds/worksheets" API (the classic way
+   to list a spreadsheet's tabs without an API key), so that endpoint now
+   answers with 404 for essentially every sheet. Instead we reuse the same
+   export mechanism that already works for pulling the data itself: we
+   download the whole workbook as .xlsx (a plain, CORS-friendly file
+   download — no auth redirect the way /export?format=csv can have) and let
+   the already-loaded XLSX/SheetJS library read the real list of worksheet
+   names straight out of the file. This works for any spreadsheet shared as
+   "Anyone with the link". A "Publish to web" (/d/e/{id}/) link uses a
+   different, non-queryable token, so that case still falls back to manual
+   entry. */
 function setTabStatus(msg, cls){
   const el = document.getElementById('gsheetTabStatus');
   if (!el) return;
@@ -1892,12 +1898,30 @@ function setTabStatus(msg, cls){
   el.className = 'gsheet-tab-status' + (cls?(' '+cls):'');
 }
 async function fetchSheetTabList(id){
-  const url = 'https://spreadsheets.google.com/feeds/worksheets/' + id + '/public/basic?alt=json';
-  const res = await fetchWithTimeout(url, 10000);
+  const libOk = await ensureLib('XLSX');
+  if (!libOk) throw new Error('โหลดไลบรารีอ่านไฟล์ (XLSX) ไม่สำเร็จ');
+  const url = 'https://docs.google.com/spreadsheets/d/' + id + '/export?format=xlsx';
+  let res;
+  try{
+    res = await fetchWithTimeout(url, 12000);
+  }catch(e){
+    if (e && e.name === 'AbortError') throw new Error('หมดเวลาเชื่อมต่อ (เกิน 12 วินาที)');
+    throw e;
+  }
   if (!res.ok) throw new Error('เซิร์ฟเวอร์ตอบกลับรหัส ' + res.status);
-  const data = await res.json();
-  const entries = (data && data.feed && data.feed.entry) || [];
-  const names = entries.map(e => e && e.title && e.title.$t).filter(Boolean);
+  const buf = await res.arrayBuffer();
+  // A public .xlsx download starts with the ZIP signature "PK". If it
+  // doesn't, Google redirected us to an HTML sign-in/error page instead
+  // (sheet isn't actually shared publicly) — surface that clearly rather
+  // than letting XLSX.read throw a cryptic parse error.
+  const bytes = new Uint8Array(buf.slice(0, 2));
+  if (bytes[0] !== 0x50 || bytes[1] !== 0x4B){
+    throw new Error('ชีตนี้ยังไม่เปิดสิทธิ์แบบสาธารณะ (ตั้งค่าแชร์เป็น "ทุกคนที่มีลิงก์ - ดูได้")');
+  }
+  let wb;
+  try{ wb = XLSX.read(buf, { type:'array' }); }
+  catch(e){ throw new Error('อ่านไฟล์ชีทไม่สำเร็จ'); }
+  const names = (wb && wb.SheetNames) || [];
   if (!names.length) throw new Error('ไม่พบรายชื่อหน้าชีท');
   return names;
 }
