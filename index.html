@@ -237,7 +237,7 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .ms-panel-actions button.ms-clear-btn:hover{background:var(--gray-soft);}
 
 /* ================= Insight row: map + donuts + top5 ================= */
-.insight-row{display:grid; grid-template-columns:1.5fr .82fr .82fr .82fr 1fr; gap:16px; margin-bottom:18px; align-items:stretch;}
+.insight-row{display:grid; grid-template-columns:1.3fr 2.9fr 1fr; gap:16px; margin-bottom:18px; align-items:stretch;}
 .panel{
   background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
   box-shadow:var(--shadow); padding:20px 20px 18px; display:flex; flex-direction:column;
@@ -256,6 +256,14 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .map-tool-btn svg{width:15px; height:15px; flex-shrink:0;}
 .map-tool-btn:hover{background:var(--blue-soft); color:var(--blue); border-color:var(--blue-soft);}
 .map-tool-btn:active{transform:scale(.94);}
+.map-back-btn{display:none;}
+.map-panel.is-fullscreen .map-back-btn{
+  display:inline-flex; align-items:center; gap:7px; height:34px; padding:0 14px;
+  border-radius:9px; border:1px solid var(--line); background:var(--card); color:var(--ink-soft);
+  font-size:12.5px; font-weight:600; cursor:pointer; transition:all .15s ease;
+}
+.map-back-btn svg{width:15px; height:15px;}
+.map-back-btn:hover{background:var(--blue-soft); color:var(--blue); border-color:var(--blue-soft);}
 .map-canvas-wrap{position:relative;}
 .map-panel #mapview{
   height:380px; border-radius:11px; overflow:hidden; border:1px solid var(--line);
@@ -264,8 +272,9 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
      so it can never escape and paint over the sticky header or other UI while scrolling */
 }
 .map-panel.is-fullscreen{
-  position:fixed; inset:14px; z-index:200; padding:18px 18px 16px;
-  box-shadow:0 24px 60px -20px rgba(8,18,38,.45);
+  position:fixed; top:0; left:0; right:0; bottom:0; width:100%; height:100%;
+  z-index:200; padding:16px 18px;
+  border-radius:0; box-shadow:none; background:var(--card);
   display:flex; flex-direction:column;
 }
 /* Bug fix: #mapview's fullscreen height used to be a percentage
@@ -278,7 +287,18 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .map-panel.is-fullscreen .map-canvas-wrap{flex:1; min-height:0; display:flex; flex-direction:column;}
 .map-panel.is-fullscreen #mapview{height:auto; flex:1; min-height:0;}
 .map-panel.is-fullscreen .map-legend{left:22px; right:auto; bottom:24px; max-height:calc(100% - 48px); overflow-y:auto;}
-.map-scrim{display:none; position:fixed; inset:0; background:rgba(10,18,36,.45); z-index:190;}
+.map-scrim{display:none; position:fixed; top:0; left:0; right:0; bottom:0; width:100%; height:100%; background:rgba(10,18,36,.45); z-index:190;}
+/* Bug fix: .map-panel.is-fullscreen uses position:fixed, which takes it
+   completely out of .insight-row's grid flow. Its siblings (the donut
+   card group and Top 5 panel) would then reflow to fill the vacated grid
+   cell — on any screen at or under 1180px wide, .donut-card-group has an
+   explicit grid-column:span 2, so it jumps up to render as a prominent
+   full-width row right where the map used to be, which looks exactly like
+   "expanding the map" replaced it with the donut charts. Hiding the other
+   panels while the map is fullscreen (it already covers the whole viewport
+   anyway) stops them from reflowing into that space. */
+.insight-row.map-fullscreen-active > .donut-card-group,
+.insight-row.map-fullscreen-active > .top5-panel{ display:none !important; }
 .map-scrim.show{display:block;}
 .map-empty-note{
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:401;
@@ -296,30 +316,37 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 
 .donut-card{align-items:center;}
 .donut-card canvas{width:100% !important; max-width:158px; max-height:158px;}
+.donut-card-group{flex-direction:row; align-items:stretch; padding:22px 10px 20px; gap:0;}
+.donut-sub{flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; padding:0 16px;}
+.donut-sub:not(:first-child){border-left:1px solid var(--line);}
+.donut-sub .panel-title{
+  text-align:center; min-height:2.7em; display:flex; align-items:center; justify-content:center;
+}
+.donut-sub canvas{width:100% !important; max-width:172px; max-height:172px;}
 .donut-center{position:relative; width:100%; display:flex; justify-content:center;}
 .donut-mid{
   position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none;
 }
-.donut-mid .n{font-family:var(--font-mono); font-size:20px; font-weight:700; color:var(--ink); line-height:1.1;}
-.donut-mid .l{font-size:9.5px; color:var(--ink-faint); margin-top:2px;}
-.donut-total{font-size:10.5px; color:var(--ink-faint); text-align:center; margin-top:10px;}
+.donut-mid .n{font-family:var(--font-mono); font-size:25px; font-weight:700; color:var(--ink); line-height:1.1;}
+.donut-mid .l{font-size:11px; color:var(--ink-faint); margin-top:2px;}
+.donut-total{font-size:11.5px; color:var(--ink-faint); text-align:center; margin-top:12px;}
 .donut-total b{color:var(--ink); font-weight:700;}
-.donut-legend{width:100%; margin-top:12px; display:flex; flex-direction:column; gap:7px;}
-.donut-legend .row{display:flex; align-items:center; justify-content:space-between; font-size:10.8px; gap:6px;}
+.donut-legend{width:100%; margin-top:13px; display:flex; flex-direction:column; gap:8px;}
+.donut-legend .row{display:flex; align-items:center; justify-content:space-between; font-size:11.8px; gap:6px;}
 .donut-legend .row .lab{display:flex; align-items:center; gap:6px; color:var(--ink-soft); min-width:0;}
-.donut-legend .row .dot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+.donut-legend .row .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
 .donut-legend .row .val{font-weight:600; color:var(--ink); white-space:nowrap;}
 
 .top5-panel .top5-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;}
 .top5-panel .top5-sub{font-size:9.5px; color:var(--ink-faint);}
 .top5-list{display:flex; flex-direction:column; gap:16px; margin-top:8px;}
-.top5-item{display:flex; flex-direction:column; gap:5px;}
-.top5-item .row1{display:flex; justify-content:space-between; gap:8px; font-size:10.5px;}
-.top5-item .rank{color:var(--blue); font-weight:700; margin-right:5px;}
-.top5-item .name{color:var(--ink-soft); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.top5-item .val{font-weight:700; color:var(--ink); font-family:var(--font-mono); flex-shrink:0;}
-.top5-item .bar-track{height:6px; border-radius:4px; background:var(--gray-soft); overflow:hidden;}
-.top5-item .bar-fill{height:100%; border-radius:4px; background:var(--blue);}
+.top5-item{display:flex; flex-direction:column; gap:6px;}
+.top5-item .row1{display:flex; justify-content:flex-start; gap:8px; font-size:10.5px;}
+.top5-item .rank{color:var(--blue); font-weight:700; margin-right:5px; flex-shrink:0;}
+.top5-item .name{color:var(--ink-soft); min-width:0; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+.top5-item .bar-row{display:flex; align-items:center; gap:8px;}
+.top5-item .bar-fill{height:10px; background:var(--blue); flex-shrink:0; min-width:3px;}
+.top5-item .val{font-weight:700; color:var(--ink); font-family:var(--font-mono); flex-shrink:0; font-size:11.5px;}
 .btn-viewall{
   margin-top:auto; padding-top:12px; width:100%; text-align:center; border:1px solid var(--line);
   background:var(--bg); color:var(--ink-soft); border-radius:9px; padding:10px; font-size:12.5px; font-weight:600; cursor:pointer;
@@ -346,14 +373,14 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .pager button:disabled{opacity:.4; cursor:not-allowed;}
 .pager .dots{color:var(--ink-faint); font-size:12.5px; padding:0 2px;}
 
-.table-scroll{overflow-x:auto; margin-top:14px;}
+.table-scroll{overflow-x:auto; margin-top:14px; border:1px solid var(--line); border-radius:10px;}
 table.datatable{width:100%; border-collapse:collapse; font-size:12.8px; min-width:1180px;}
 table.datatable thead th{
   text-align:left; font-weight:600; color:var(--ink-soft); font-size:11.5px;
-  background:var(--bg); padding:10px 12px; white-space:nowrap; border-bottom:1px solid var(--line);
+  background:var(--bg); padding:10px 12px; white-space:nowrap; border:1px solid var(--line);
   position:sticky; top:0;
 }
-table.datatable tbody td{padding:11px 12px; border-bottom:1px solid var(--line); color:var(--ink); vertical-align:middle;}
+table.datatable tbody td{padding:11px 12px; border:1px solid var(--line); color:var(--ink); vertical-align:middle;}
 table.datatable tbody tr:hover{background:#F7F9FC;}
 .cell-name .primary{font-weight:600; color:var(--ink);}
 .cell-name .secondary{font-size:11px; color:var(--ink-faint); margin-top:2px;}
@@ -402,9 +429,23 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
   border:1px dashed var(--line); border-radius:9px; padding:10px; font-size:12px; color:var(--ink-soft); cursor:pointer;
 }
 
+/* ---- Row detail modal ---- */
+.detail-modal{width:520px; max-width:100%; background:var(--card); border-radius:14px; box-shadow:var(--shadow); padding:22px;}
+.detail-modal h3{margin:0 0 16px; font-family:var(--font-display); font-size:16px; padding-right:24px; line-height:1.4;}
+.detail-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px 18px;}
+.detail-item{display:flex; flex-direction:column; gap:4px; min-width:0;}
+.detail-item.full{grid-column:1 / -1;}
+.detail-item .lab{font-size:11px; color:var(--ink-faint);}
+.detail-item .val{font-size:13px; color:var(--ink); font-weight:600; word-break:break-word;}
+
 @media (max-width:1180px){
   .insight-row{grid-template-columns:1fr 1fr; }
   .insight-row .top5-panel{grid-column:span 2;}
+  .insight-row .donut-card-group{grid-column:span 2;}
+}
+@media (max-width:640px){
+  .donut-card-group{flex-direction:column;}
+  .donut-sub:not(:first-child){border-left:none; border-top:1px solid var(--line); padding-top:16px; margin-top:16px;}
 }
 @media (max-width:980px){
   .sidebar{display:none;}
@@ -456,6 +497,38 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
   header.topbar, .app-shell, .modal-backdrop{ display:none !important; }
   body{ margin:0; background:#fff; }
   .print-report{ display:flex; position:static; left:auto; z-index:auto; }
+}
+
+/* ---- Full data-table report (used by the "ดาวน์โหลดรายงาน" button next to
+   the table) — a separate print target from the dashboard summary above, so
+   printing from the table section yields every row/column of the table
+   itself rather than the one-page dashboard overview. Which one actually
+   appears at print time is switched via the body.print-target-table class
+   toggled in exportTableReport(). */
+.print-table-report{ display:none; }
+.print-table-report, .print-table-report.is-exporting{
+  flex-direction:column; width:277mm; box-sizing:border-box;
+  font-family:var(--font-body); color:var(--ink);
+}
+@media screen{
+  .print-table-report.is-exporting{
+    display:flex;
+    position:fixed; top:0; left:-10000px; z-index:-1;
+    background:#fff;
+  }
+}
+table.pr-table-full{ width:100%; border-collapse:collapse; font-size:2.6mm; margin-top:4mm; }
+table.pr-table-full thead{ display:table-header-group; }
+table.pr-table-full thead th{
+  text-align:left; font-weight:600; color:var(--ink-soft); font-size:2.3mm;
+  background:var(--bg); padding:2mm 2.6mm; border:0.25mm solid var(--line); white-space:nowrap;
+}
+table.pr-table-full tbody td{ padding:1.8mm 2.6mm; border:0.25mm solid var(--line); color:var(--ink); }
+table.pr-table-full tbody tr{ break-inside:avoid; }
+@media print{
+  body.print-target-table .print-report{ display:none !important; }
+  body.print-target-table .print-table-report{ display:flex !important; position:static; left:auto; z-index:auto; }
+  body:not(.print-target-table) .print-table-report{ display:none !important; }
 }
 
 .pr-header{ display:flex; justify-content:space-between; align-items:flex-end; border-bottom:0.6mm solid var(--navy); padding-bottom:3mm; margin-bottom:5mm; }
@@ -596,6 +669,42 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
   </div>
 
   <p class="pr-footer">รายงานสรุปภาพรวม สร้างจากข้อมูล ณ เวลาที่บันทึก · ระบบติดตามแหล่งกำเนิดมลพิษ</p>
+</div>
+
+<!-- Full data-table report — shown only when exporting via the
+     "ดาวน์โหลดรายงาน" button next to the table (exportTableReport() /
+     renderPrintTableFull()). Prints every row/column of the live table,
+     unlike #printReport above which is a condensed one-page summary. -->
+<div class="print-table-report" id="printTableReport">
+  <div class="pr-header">
+    <div>
+      <h1>ข้อมูลแหล่งกำเนิดมลพิษทั้งหมด</h1>
+      <p class="pr-sub">รายงานตารางข้อมูลฉบับเต็ม · ระบบติดตามแหล่งกำเนิดมลพิษ</p>
+    </div>
+    <div class="pr-meta">
+      <p id="printTableGeneratedAt"></p>
+      <p id="printTableFilterSummary"></p>
+      <p>พบทั้งหมด <b id="printTableCount">0</b> รายการ</p>
+    </div>
+  </div>
+  <table class="pr-table-full">
+    <thead>
+      <tr>
+        <th>ลำดับ</th>
+        <th>ชื่อแหล่งกำเนิดมลพิษ</th>
+        <th>ประเภทแหล่ง</th>
+        <th>ขนาด</th>
+        <th>เขต / อำเภอ</th>
+        <th>เชื่อมท่อ</th>
+        <th>การปฏิบัติตามกฎหมาย</th>
+        <th>สถานะบังคับใช้กฎหมาย</th>
+        <th>ปีงบประมาณ</th>
+        <th>โครงการที่เข้าตรวจสอบ</th>
+      </tr>
+    </thead>
+    <tbody id="printTableFullBody"></tbody>
+  </table>
+  <p class="pr-footer">รายงานตารางข้อมูลฉบับเต็ม สร้างจากข้อมูล ณ เวลาที่บันทึก · ระบบติดตามแหล่งกำเนิดมลพิษ</p>
 </div>
 
 <header class="topbar">
@@ -741,6 +850,10 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
           <div class="map-panel-head">
             <div class="panel-title">พิกัดแหล่งกำเนิดมลพิษ</div>
             <div class="map-toolbar">
+              <button type="button" class="map-back-btn" id="mapBackBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                กลับสู่แดชบอร์ด
+              </button>
               <button type="button" class="map-tool-btn" id="mapResetBtn" title="รีเซ็ทมุมมองแผนที่">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
               </button>
@@ -762,25 +875,27 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
           </div>
         </div>
 
-        <div class="panel donut-card">
-          <div class="panel-title">เชื่อมท่อ / ไม่เชื่อมท่อ</div>
-          <div class="donut-center"><canvas id="chartSewer"></canvas><div class="donut-mid" id="sewerMid"></div></div>
-          <div class="donut-total">ทั้งหมด <b id="sewerTotal">0</b> แห่ง</div>
-          <div class="donut-legend" id="sewerLegend"></div>
-        </div>
+        <div class="panel donut-card-group">
+          <div class="donut-sub">
+            <div class="panel-title">เชื่อมท่อ / ไม่เชื่อมท่อ</div>
+            <div class="donut-center"><canvas id="chartSewer"></canvas><div class="donut-mid" id="sewerMid"></div></div>
+            <div class="donut-total">ทั้งหมด <b id="sewerTotal">0</b> แห่ง</div>
+            <div class="donut-legend" id="sewerLegend"></div>
+          </div>
 
-        <div class="panel donut-card">
-          <div class="panel-title">การปฏิบัติตามกฎหมายในการระบายน้ำทิ้ง</div>
-          <div class="donut-center"><canvas id="chartCompliance"></canvas><div class="donut-mid" id="complianceMid"></div></div>
-          <div class="donut-total">ทั้งหมด <b id="complianceTotal">0</b> แห่ง</div>
-          <div class="donut-legend" id="complianceLegend"></div>
-        </div>
+          <div class="donut-sub">
+            <div class="panel-title">การปฏิบัติตามกฎหมายในการระบายน้ำทิ้ง</div>
+            <div class="donut-center"><canvas id="chartCompliance"></canvas><div class="donut-mid" id="complianceMid"></div></div>
+            <div class="donut-total">ทั้งหมด <b id="complianceTotal">0</b> แห่ง</div>
+            <div class="donut-legend" id="complianceLegend"></div>
+          </div>
 
-        <div class="panel donut-card">
-          <div class="panel-title">สถานะการบังคับใช้กฎหมาย</div>
-          <div class="donut-center"><canvas id="chartEnforce"></canvas><div class="donut-mid" id="enforceMid"></div></div>
-          <div class="donut-total">ทั้งหมด <b id="enforceTotal">0</b> แห่ง</div>
-          <div class="donut-legend" id="enforceLegend"></div>
+          <div class="donut-sub">
+            <div class="panel-title">สถานะการบังคับใช้กฎหมาย</div>
+            <div class="donut-center"><canvas id="chartEnforce"></canvas><div class="donut-mid" id="enforceMid"></div></div>
+            <div class="donut-total">ทั้งหมด <b id="enforceTotal">0</b> แห่ง</div>
+            <div class="donut-legend" id="enforceLegend"></div>
+          </div>
         </div>
 
         <div class="panel top5-panel">
@@ -806,7 +921,7 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
               ส่งออกข้อมูล
             </button>
-            <button class="btn-export" id="downloadReportPromptBtn" type="button" title="บันทึกรายงานทั้งหมด (ระบบจะถามยืนยันก่อนดาวน์โหลด)">
+            <button class="btn-export" id="downloadReportPromptBtn" type="button" title="บันทึกตารางข้อมูลทั้งหมดเป็น PDF (ระบบจะถามยืนยันก่อนดาวน์โหลด)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
               ดาวน์โหลดรายงาน
             </button>
@@ -848,10 +963,13 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
     <h3>เชื่อมต่อ Google Sheet</h3>
     <label for="gsheetUrlInput">ลิงก์ Google Sheet (แบบเปิดสาธารณะ)</label>
     <input type="text" id="gsheetUrlInput" placeholder="วางลิงก์ https://docs.google.com/spreadsheets/d/...">
+    <label for="gsheetTabInput">เลือกหน้าชีท (ชื่อแท็บ) — ไม่ระบุ = ใช้ชีทแรก</label>
+    <input type="text" id="gsheetTabInput" placeholder="เช่น ชีท2 หรือ Sheet2 (เว้นว่างไว้เพื่อใช้ชีทแรกโดยอัตโนมัติ)">
     <div class="gsheet-hint">
       1) เปิดไฟล์ใน Google Sheets → กด Share → เปลี่ยนสิทธิ์เป็น "Anyone with the link" (Viewer)<br>
       2) คัดลอกลิงก์จาก address bar มาวางด้านบน<br>
-      3) ระบบจะดึงข้อมูลจากชีตนี้โดยตรงและรีเฟรชอัตโนมัติ
+      3) หากต้องการดึงข้อมูลเฉพาะบางหน้าชีท ให้พิมพ์ชื่อแท็บนั้น (ตรงตามที่แสดงในแท็บด้านล่างของ Google Sheet ทุกตัวอักษร) ลงในช่อง "เลือกหน้าชีท" — เว้นว่างไว้หากต้องการใช้ชีทแรก<br>
+      4) กด "เชื่อมต่อ &amp; ดึงข้อมูล" — ระบบจะดึงเฉพาะข้อมูลของชีทที่เลือกเท่านั้น และรีเฟรชอัตโนมัติตามชีทเดิมทุกครั้ง
     </div>
     <div class="gsheet-actions">
       <button class="btn-search" id="gsheetConnectBtn" type="button" style="flex:1; justify-content:center;">เชื่อมต่อ &amp; ดึงข้อมูล</button>
@@ -867,6 +985,15 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
     <div class="gsheet-msg" id="gsheetMsg"></div>
     <label class="upload-label" for="fileInput">อัปโหลดไฟล์ .xlsx/.csv จากเครื่องแทน</label>
     <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" hidden>
+  </div>
+</div>
+
+<!-- ===================== Row detail modal ===================== -->
+<div class="modal-backdrop" id="detailModal" hidden>
+  <div class="detail-modal">
+    <button class="close-x" id="detailCloseBtn" type="button">✕</button>
+    <h3 id="detailTitle">-</h3>
+    <div class="detail-grid" id="detailGrid"></div>
   </div>
 </div>
 
@@ -888,12 +1015,11 @@ const EMBEDDED_DATA = {"cols":["n","t","c","a","o","s","d","p","w","y","j","st",
 
 const SIZE_LABEL = { 'ก':'sz-k', 'ข':'sz-kh', 'ค':'sz-kk', 'ง':'sz-ng' };
 const ENFORCE_COLORS = {
-  'อยู่ระหว่างแนะนำ':'#2B63E0',
-  'ออกคำสั่งทางปกครอง':'#E6A417',
-  'ดำเนินคดีแล้ว':'#E0452F',
-  'อื่นๆ':'#94A0B4',
+  'ปฏิบัติตามกฎหมาย':'#1AA36A',
+  'ไม่ปฏิบัติตามกฎหมาย':'#E0452F',
+  'เก็บตัวอย่างน้ำทิ้งไม่ได้':'#E6A417',
 };
-const ENFORCE_ORDER = ['อยู่ระหว่างแนะนำ','ออกคำสั่งทางปกครอง','ดำเนินคดีแล้ว','อื่นๆ'];
+const ENFORCE_ORDER = ['ปฏิบัติตามกฎหมาย','ไม่ปฏิบัติตามกฎหมาย','เก็บตัวอย่างน้ำทิ้งไม่ได้'];
 const COMPLY_COLORS = { 'ok':'#1AA36A', 'partial':'#E6A417', 'bad':'#E0452F' };
 const COMPLY_LABEL = { 'ok':'ปฏิบัติถูกต้อง', 'partial':'ปฏิบัติไม่ครบถ้วน', 'bad':'ไม่ปฏิบัติ' };
 
@@ -962,16 +1088,19 @@ function complyBucket(row){
 }
 function enforceBucket(row){
   const e = normText(row.e);
-  if (!e) return 'อื่นๆ';
   // Exact match against the canonical labels first...
   const exact = ENFORCE_ORDER.find(k=> normText(k) === e);
   if (exact) return exact;
   // ...then keyword fallback for real-world variants (extra wording, spacing,
-  // or slightly different phrasing) so data doesn't silently pile up in "อื่นๆ".
-  if (e.includes('ดำเนินคดี') || e.includes('ฟ้องร้อง')) return 'ดำเนินคดีแล้ว';
-  if (e.includes('คำสั่ง')) return 'ออกคำสั่งทางปกครอง';
-  if (e.includes('แนะนำ') || e.includes('ตักเตือน') || e.includes('ตรวจสอบ')) return 'อยู่ระหว่างแนะนำ';
-  return 'อื่นๆ';
+  // or slightly different phrasing) so data doesn't silently pile up wrong.
+  if (e){
+    if (e.includes('เก็บตัวอย่าง') && (e.includes('ไม่ได้') || e.includes('ไม่ได')) ) return 'เก็บตัวอย่างน้ำทิ้งไม่ได้';
+    if (e.includes('ไม่ปฏิบัติ') || e.includes('ไม่ผ่าน') || e.includes('ฝ่าฝืน')) return 'ไม่ปฏิบัติตามกฎหมาย';
+    if (e.includes('ปฏิบัติ') && e.includes('ตามกฎหมาย')) return 'ปฏิบัติตามกฎหมาย';
+  }
+  // No usable text in the enforcement-status field: fall back to the
+  // boolean compliance flag so every row still lands in a real bucket.
+  return row.c ? 'ปฏิบัติตามกฎหมาย' : 'ไม่ปฏิบัติตามกฎหมาย';
 }
 
 function loadData(payload, sourceLabel){
@@ -1285,12 +1414,41 @@ function makeDonut(canvasId, labels, data, colors){
     return;
   }
   destroyChart(canvasId);
+  const total = data.reduce((a,b)=>a+(b||0), 0);
+  // Bug fix: a slice under ~1.5% of the total (e.g. 8 out of 2,471) can end
+  // up entirely swallowed by its own border and effectively disappear from
+  // the ring, even though the legend/tooltip next to it are correct. Boost
+  // any non-zero slice up to a minimum visible width for RENDERING only,
+  // scaling the rest down proportionally so the ring still sums to 100% —
+  // the legend and tooltip below still show the true counts/percentages.
+  const MIN_FRACTION = 0.015;
+  let displayData = data;
+  if (total > 0){
+    const boosted = data.map(v=> v>0 ? Math.max(v, total*MIN_FRACTION) : 0);
+    const boostedTotal = boosted.reduce((a,b)=>a+b, 0);
+    if (boostedTotal > total){
+      const scale = total / boostedTotal;
+      displayData = boosted.map(v=> v*scale);
+    }
+  }
   charts[canvasId] = new Chart(document.getElementById(canvasId), {
     type:'doughnut',
-    data:{ labels, datasets:[{ data, backgroundColor:colors, borderWidth:2, borderColor:'#fff' }] },
+    data:{ labels, datasets:[{ data: displayData, backgroundColor:colors, borderWidth:1.5, borderColor:'#fff' }] },
     options:{
       responsive:true, maintainAspectRatio:true, cutout:'66%',
-      plugins:{ legend:{display:false}, tooltip:{enabled:true} },
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          enabled:true,
+          callbacks:{
+            label: (ctx)=>{
+              const real = data[ctx.dataIndex] || 0;
+              const pct = total ? Math.round(real/total*1000)/10 : 0;
+              return ctx.label + ': ' + real.toLocaleString('th-TH') + ' (' + pct + '%)';
+            }
+          }
+        }
+      },
     }
   });
 }
@@ -1343,10 +1501,13 @@ function renderTop5(){
   document.getElementById('top5List').innerHTML = top.map(([name,count],i)=>`
     <div class="top5-item">
       <div class="row1">
-        <span class="name"><span class="rank">${i+1}</span>${escapeHtml(name)}</span>
+        <span class="rank">${i+1}</span>
+        <span class="name">${escapeHtml(name)}</span>
+      </div>
+      <div class="bar-row">
+        <div class="bar-fill" style="width:${Math.round(count/max*70)}%"></div>
         <span class="val">${count.toLocaleString('th-TH')}</span>
       </div>
-      <div class="bar-track"><div class="bar-fill" style="width:${Math.round(count/max*100)}%"></div></div>
     </div>
   `).join('') || '<div style="font-size:12px; color:var(--ink-faint);">ไม่มีข้อมูล</div>';
 }
@@ -1382,12 +1543,46 @@ function renderTable(){
       <td>${statusDot(eb, eb, ENFORCE_COLORS)}</td>
       <td>${r.y!=null ? r.y : '-'}</td>
       <td>${escapeHtml(r.j||'-')}</td>
-      <td><button class="eye-btn" title="ดูรายละเอียด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></td>
+      <td><button class="eye-btn" type="button" data-idx="${start+i}" title="ดูรายละเอียด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></td>
     </tr>`;
   }).join('') || `<tr><td colspan="11" style="text-align:center; color:var(--ink-faint); padding:30px;">ไม่พบข้อมูลที่ตรงกับตัวกรอง</td></tr>`;
 
   renderPager('pagerTop', totalPages);
   renderPager('pagerBottom', totalPages);
+}
+
+/* ---------------- Row detail modal ---------------- */
+function openDetailModal(row){
+  const bucket = complyBucket(row);
+  const eb = enforceBucket(row);
+  document.getElementById('detailTitle').textContent = row.n || '-';
+  const items = [
+    ['ประเภทแหล่ง', row.t || '-'],
+    ['ขนาดของแหล่ง', row.s || '-'],
+    ['เขต / อำเภอ', row.d || '-'],
+    ['จังหวัด', row.p || '-'],
+    ['เชื่อมท่อ', row.w ? 'เชื่อมท่อ' : 'ไม่เชื่อมท่อ'],
+    ['การปฏิบัติตามกฎหมายในการระบายน้ำทิ้ง', COMPLY_LABEL[bucket]],
+    ['สถานะการบังคับใช้กฎหมาย', eb],
+    ['ปีงบประมาณที่เริ่มตรวจ', row.y!=null ? row.y : '-'],
+    ['โครงการที่เข้าตรวจสอบ', row.j || '-'],
+  ];
+  document.getElementById('detailGrid').innerHTML = items.map(([lab,val])=>`
+    <div class="detail-item"><span class="lab">${escapeHtml(lab)}</span><span class="val">${escapeHtml(String(val))}</span></div>
+  `).join('');
+  document.getElementById('detailModal').hidden = false;
+}
+function initDetailModal(){
+  const modal = document.getElementById('detailModal');
+  document.getElementById('detailCloseBtn').addEventListener('click', ()=>{ modal.hidden = true; });
+  modal.addEventListener('click', e=>{ if (e.target === modal) modal.hidden = true; });
+  document.getElementById('tableBody').addEventListener('click', e=>{
+    const btn = e.target.closest('.eye-btn');
+    if (!btn) return;
+    const idx = parseInt(btn.dataset.idx, 10);
+    const row = FILTERED[idx];
+    if (row) openDetailModal(row);
+  });
 }
 
 function renderPager(elId, totalPages){
@@ -1513,7 +1708,7 @@ function resetMapView(){
     mapInstance.setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
   }
 }
-function toggleMapFullscreen(){
+function setMapFullscreen(goingFullscreen){
   const panel = document.getElementById('sec-map');
   const btn = document.getElementById('mapExpandBtn');
   let scrim = document.getElementById('mapScrim');
@@ -1522,10 +1717,14 @@ function toggleMapFullscreen(){
     scrim.id = 'mapScrim';
     scrim.className = 'map-scrim';
     document.body.appendChild(scrim);
-    scrim.addEventListener('click', toggleMapFullscreen);
+    scrim.addEventListener('click', ()=> setMapFullscreen(false));
   }
-  const goingFullscreen = !panel.classList.contains('is-fullscreen');
   panel.classList.toggle('is-fullscreen', goingFullscreen);
+  // Keep the map's grid siblings (donut cards, Top 5 panel) from reflowing
+  // into the cell it vacates once it becomes position:fixed — see the CSS
+  // comment above .insight-row.map-fullscreen-active for why this matters.
+  const insightRow = panel.closest('.insight-row');
+  if (insightRow) insightRow.classList.toggle('map-fullscreen-active', goingFullscreen);
   scrim.classList.toggle('show', goingFullscreen);
   if (btn){
     btn.title = goingFullscreen ? 'ย่อแผนที่กลับ' : 'ขยายแผนที่เต็มจอ';
@@ -1546,13 +1745,26 @@ function toggleMapFullscreen(){
     resetMapView();
   }, 220);
 }
+function toggleMapFullscreen(){
+  const panel = document.getElementById('sec-map');
+  setMapFullscreen(!panel.classList.contains('is-fullscreen'));
+}
+// Opens the map as its own full-page view — used by the "แผนที่" sidebar
+// item so clicking it feels like navigating to a dedicated map page rather
+// than just scrolling to the map card.
+function openMapFullPage(){
+  document.getElementById('sec-map').scrollIntoView({behavior:'auto', block:'start'});
+  setMapFullscreen(true);
+}
 function initMapControls(){
   const resetBtn = document.getElementById('mapResetBtn');
   const expandBtn = document.getElementById('mapExpandBtn');
+  const backBtn = document.getElementById('mapBackBtn');
   if (resetBtn) resetBtn.addEventListener('click', resetMapView);
   if (expandBtn) expandBtn.addEventListener('click', toggleMapFullscreen);
+  if (backBtn) backBtn.addEventListener('click', ()=> setMapFullscreen(false));
   document.addEventListener('keydown', e=>{
-    if (e.key === 'Escape' && document.getElementById('sec-map').classList.contains('is-fullscreen')) toggleMapFullscreen();
+    if (e.key === 'Escape' && document.getElementById('sec-map').classList.contains('is-fullscreen')) setMapFullscreen(false);
   });
 }
 
@@ -1621,35 +1833,44 @@ function saveGsheetConfig(cfg){ try{ localStorage.setItem(LS_GSHEET, JSON.string
 function loadGsheetConfig(){ try{ const s = localStorage.getItem(LS_GSHEET); return s?JSON.parse(s):null; }catch(e){ return null; } }
 function clearGsheetConfig(){ try{ localStorage.removeItem(LS_GSHEET); }catch(e){} }
 
-function parseGsheetInput(raw){
+function parseGsheetInput(raw, sheetName){
   raw = (raw||'').trim();
   if (!raw) return null;
   let gid = '0';
   const gidMatch = raw.match(/[#&?]gid=([0-9]+)/);
   if (gidMatch) gid = gidMatch[1];
+  sheetName = (sheetName||'').trim() || null;
   const pubMatch = raw.match(/\/spreadsheets\/d\/e\/([a-zA-Z0-9-_]+)/);
-  if (pubMatch) return { published:true, id:pubMatch[1], gid };
+  if (pubMatch) return { published:true, id:pubMatch[1], gid, sheetName };
   const idMatch = raw.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
-  if (idMatch) return { published:false, id:idMatch[1], gid };
-  if (/^[a-zA-Z0-9-_]{20,}$/.test(raw)) return { published:false, id:raw, gid };
+  if (idMatch) return { published:false, id:idMatch[1], gid, sheetName };
+  if (/^[a-zA-Z0-9-_]{20,}$/.test(raw)) return { published:false, id:raw, gid, sheetName };
   return null;
 }
 function buildCsvCandidates(parsed){
   if (!parsed) return [];
+  const sheetQuery = parsed.sheetName ? ('&sheet=' + encodeURIComponent(parsed.sheetName)) : ('&gid=' + parsed.gid);
   if (parsed.published){
-    return [
-      'https://docs.google.com/spreadsheets/d/e/' + parsed.id + '/pub?output=csv&gid=' + parsed.gid,
-      'https://docs.google.com/spreadsheets/d/e/' + parsed.id + '/pub?output=csv',
+    const list = [
+      'https://docs.google.com/spreadsheets/d/e/' + parsed.id + '/pub?output=csv' + sheetQuery,
     ];
+    if (!parsed.sheetName) list.push('https://docs.google.com/spreadsheets/d/e/' + parsed.id + '/pub?output=csv');
+    return list;
   }
   // gviz/tq is tried first: it responds with proper CORS headers for
   // publicly-shared sheets, whereas /export?format=csv can redirect
   // through accounts.google.com (no CORS headers) and hang/fail silently
   // in the browser when the sheet isn't fully public.
-  return [
-    'https://docs.google.com/spreadsheets/d/' + parsed.id + '/gviz/tq?tqx=out:csv&gid=' + parsed.gid,
-    'https://docs.google.com/spreadsheets/d/' + parsed.id + '/export?format=csv&gid=' + parsed.gid,
+  // When a specific tab name is given, use the "sheet" param (gviz supports
+  // selecting a tab by its visible name) instead of the numeric gid, so the
+  // user only needs to type the tab label they see in Google Sheets.
+  const list = [
+    'https://docs.google.com/spreadsheets/d/' + parsed.id + '/gviz/tq?tqx=out:csv' + sheetQuery,
   ];
+  if (!parsed.sheetName){
+    list.push('https://docs.google.com/spreadsheets/d/' + parsed.id + '/export?format=csv' + sheetQuery);
+  }
+  return list;
 }
 function fetchWithTimeout(url, ms){
   const controller = new AbortController();
@@ -1680,9 +1901,9 @@ function setGsheetMsg(msg, cls){
   el.textContent = msg;
   el.className = 'gsheet-msg' + (cls?(' '+cls):'');
 }
-async function connectGsheet(rawUrl, opts){
+async function connectGsheet(rawUrl, sheetName, opts){
   opts = opts || {};
-  const parsed = parseGsheetInput(rawUrl);
+  const parsed = parseGsheetInput(rawUrl, sheetName);
   if (!parsed){ setGsheetMsg('รูปแบบลิงก์ไม่ถูกต้อง กรุณาวางลิงก์ Google Sheet ให้ครบถ้วน', 'err'); return false; }
   if (!opts.silent) setGsheetMsg('กำลังเชื่อมต่อและดึงข้อมูล...', '');
   try{
@@ -1695,7 +1916,8 @@ async function connectGsheet(rawUrl, opts){
     if (!rows.length) throw new Error('ดึงข้อมูลสำเร็จ แต่ไม่พบแถวที่ตรงกับรูปแบบคอลัมน์ที่คาดไว้');
     const payload = { cols:['n','t','c','a','o','s','d','p','w','y','j','st','e'], rows };
     loadData(payload, new Date().toLocaleString('th-TH'));
-    setGsheetMsg('เชื่อมต่อสำเร็จ · ดึงข้อมูล ' + rows.length.toLocaleString('th-TH') + ' รายการ', 'ok');
+    const tabNote = parsed.sheetName ? (' (ชีท "' + parsed.sheetName + '")') : ' (ชีทแรก)';
+    setGsheetMsg('เชื่อมต่อสำเร็จ' + tabNote + ' · ดึงข้อมูล ' + rows.length.toLocaleString('th-TH') + ' รายการ', 'ok');
     document.getElementById('gsheetLiveDot').classList.add('on');
     document.getElementById('gsheetRefreshRow').hidden = false;
     return true;
@@ -1712,7 +1934,7 @@ function setGsheetAutoRefresh(on, ms){
   const label = document.getElementById('gsheetRefreshLabel');
   const btn = document.getElementById('gsheetRefreshToggleBtn');
   if (on){
-    gsheetTimer = setInterval(()=>{ if (gsheetConfig) connectGsheet(gsheetConfig.raw, {silent:true}); }, ms);
+    gsheetTimer = setInterval(()=>{ if (gsheetConfig) connectGsheet(gsheetConfig.raw, gsheetConfig.sheetName, {silent:true}); }, ms);
     if (label) label.textContent = 'รีเฟรชอัตโนมัติ: ทุก ' + Math.round(ms/1000) + ' วินาที';
   } else if (label) label.textContent = 'รีเฟรชอัตโนมัติ: ปิด';
   if (gsheetConfig){ gsheetConfig.autoRefresh = on; gsheetConfig.refreshMs = ms; saveGsheetConfig(gsheetConfig); }
@@ -1720,6 +1942,7 @@ function setGsheetAutoRefresh(on, ms){
 function initGsheetConnect(){
   const modal = document.getElementById('gsheetModal');
   const urlInput = document.getElementById('gsheetUrlInput');
+  const tabInput = document.getElementById('gsheetTabInput');
   const openBtns = [document.getElementById('gsheetOpenBtn'), document.getElementById('settingsAvatarBtn'), document.getElementById('navSettings')];
   openBtns.forEach(b=> b && b.addEventListener('click', ()=>{ modal.hidden = false; }));
   document.getElementById('gsheetCloseBtn').addEventListener('click', ()=>{ modal.hidden = true; });
@@ -1727,15 +1950,16 @@ function initGsheetConnect(){
 
   document.getElementById('gsheetConnectBtn').addEventListener('click', async ()=>{
     const raw = urlInput.value.trim();
+    const sheetName = tabInput.value.trim();
     if (!raw){ setGsheetMsg('กรุณาวางลิงก์ Google Sheet ก่อน', 'err'); return; }
-    const success = await connectGsheet(raw);
-    if (success){ gsheetConfig = { raw, autoRefresh:false, refreshMs:REFRESH_MS }; saveGsheetConfig(gsheetConfig); }
+    const success = await connectGsheet(raw, sheetName);
+    if (success){ gsheetConfig = { raw, sheetName, autoRefresh:false, refreshMs:REFRESH_MS }; saveGsheetConfig(gsheetConfig); }
   });
   document.getElementById('gsheetRefreshToggleBtn').addEventListener('click', ()=>{
     if (!gsheetConfig) return;
     setGsheetAutoRefresh(!gsheetConfig.autoRefresh, gsheetConfig.refreshMs || REFRESH_MS);
   });
-  document.getElementById('gsheetRefreshNowBtn').addEventListener('click', ()=>{ if (gsheetConfig) connectGsheet(gsheetConfig.raw); });
+  document.getElementById('gsheetRefreshNowBtn').addEventListener('click', ()=>{ if (gsheetConfig) connectGsheet(gsheetConfig.raw, gsheetConfig.sheetName); });
   document.getElementById('gsheetDisconnectBtn').addEventListener('click', ()=>{
     setGsheetAutoRefresh(false, REFRESH_MS);
     gsheetConfig = null; clearGsheetConfig();
@@ -1748,12 +1972,13 @@ function initGsheetConnect(){
   const saved = loadGsheetConfig();
   if (saved && saved.raw){
     urlInput.value = saved.raw;
+    tabInput.value = saved.sheetName || '';
     gsheetConfig = saved;
-    connectGsheet(saved.raw, {silent:true}).then(ok=>{ if (ok && saved.autoRefresh) setGsheetAutoRefresh(true, saved.refreshMs || REFRESH_MS); });
+    connectGsheet(saved.raw, saved.sheetName, {silent:true}).then(ok=>{ if (ok && saved.autoRefresh) setGsheetAutoRefresh(true, saved.refreshMs || REFRESH_MS); });
   } else if (DEFAULT_GSHEET_URL){
     urlInput.value = DEFAULT_GSHEET_URL;
-    gsheetConfig = { raw: DEFAULT_GSHEET_URL, autoRefresh:true, refreshMs:REFRESH_MS };
-    connectGsheet(DEFAULT_GSHEET_URL, {silent:true}).then(ok=>{
+    gsheetConfig = { raw: DEFAULT_GSHEET_URL, sheetName:'', autoRefresh:true, refreshMs:REFRESH_MS };
+    connectGsheet(DEFAULT_GSHEET_URL, '', {silent:true}).then(ok=>{
       if (ok){ saveGsheetConfig(gsheetConfig); setGsheetAutoRefresh(true, REFRESH_MS); }
     });
   }
@@ -1916,6 +2141,46 @@ function prDot(color, label){
   return `<span class="pr-dot"><span class="d" style="background:${color}"></span>${escapeHtml(label)}</span>`;
 }
 
+/* ---------------- Full data-table print report ----------------
+   Builds every row of FILTERED (not just a preview slice like the summary
+   report) into #printTableFullBody, so the "ดาวน์โหลดรายงาน" button next to
+   the table exports the complete table — same columns as the live table,
+   minus the "ดูรายละเอียด" action column which has no meaning on paper. */
+function renderPrintTableFull(){
+  const total = FILTERED.length;
+  document.getElementById('printTableGeneratedAt').textContent =
+    'ข้อมูล ณ วันที่ ' + new Date().toLocaleString('th-TH');
+  document.getElementById('printTableFilterSummary').textContent = buildFilterSummaryText();
+  document.getElementById('printTableCount').textContent = total.toLocaleString('th-TH');
+  document.getElementById('printTableFullBody').innerHTML = FILTERED.map((r,i)=>{
+    const bucket = complyBucket(r);
+    const eb = enforceBucket(r);
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${escapeHtml(r.n||'-')}</td>
+      <td>${escapeHtml(r.t||'-')}</td>
+      <td>${prSizeBadge(r.s)}</td>
+      <td>${escapeHtml(r.d||'-')}</td>
+      <td>${prDot(r.w?'#1AA36A':'#E0452F', r.w?'เชื่อมท่อ':'ไม่เชื่อมท่อ')}</td>
+      <td>${prDot(COMPLY_COLORS[bucket], COMPLY_LABEL[bucket])}</td>
+      <td>${prDot(ENFORCE_COLORS[eb]||'#94A0B4', eb)}</td>
+      <td>${r.y!=null ? r.y : '-'}</td>
+      <td>${escapeHtml(r.j||'-')}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="10" style="text-align:center; color:var(--ink-faint); padding:4mm;">ไม่พบข้อมูลที่ตรงกับตัวกรอง</td></tr>`;
+}
+
+function exportTableReport(){
+  renderPrintTableFull();
+  // Switches the print target to #printTableReport instead of the
+  // dashboard-summary #printReport — see the body.print-target-table rules
+  // in the print stylesheet.
+  document.body.classList.add('print-target-table');
+  const el = document.getElementById('printTableReport');
+  if (el) el.classList.add('is-exporting');
+  requestAnimationFrame(()=> requestAnimationFrame(()=> window.print()));
+}
+
 /* ---------------- Snapshot the live map for the print report ----------------
    Bug fix: the previous approach physically relocated the live #mapview DOM
    node into the print report and had Leaflet re-fit itself into that
@@ -1973,6 +2238,9 @@ function renderPrintMap(dataUrl){
 function restoreMapAfterPrint(){
   const printReportEl = document.getElementById('printReport');
   if (printReportEl) printReportEl.classList.remove('is-exporting');
+  const printTableReportEl = document.getElementById('printTableReport');
+  if (printTableReportEl) printTableReportEl.classList.remove('is-exporting');
+  document.body.classList.remove('print-target-table');
 }
 
 function exportFullReport(){
@@ -2015,6 +2283,12 @@ function initSideNav(){
     btn.addEventListener('click', ()=>{
       document.querySelectorAll('.side-nav button').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
+      // The "แผนที่" item opens the map as its own full-page view instead
+      // of just scrolling to the map card, so it feels like a dedicated map page.
+      if (btn.dataset.target === 'sec-map'){
+        openMapFullPage();
+        return;
+      }
       const target = document.getElementById(btn.dataset.target);
       if (target) target.scrollIntoView({behavior:'smooth', block:'start'});
     });
@@ -2042,17 +2316,20 @@ function init(){
     // the live map back where it belongs once the dialog closes.
     window.addEventListener('afterprint', restoreMapAfterPrint);
     // In the "ข้อมูลแหล่งกำเนิดมลพิษทั้งหมด" section, ask for explicit
-    // yes/no confirmation before downloading the full report — the button
-    // only triggers the save when the user chooses to.
+    // yes/no confirmation before downloading the full table — the button
+    // only triggers the save when the user chooses to. This exports the
+    // complete data table (every row/column) as a PDF via print, separate
+    // from the dashboard-summary export on the header's exportBtn.
     document.getElementById('downloadReportPromptBtn').addEventListener('click', ()=>{
-      const wantsDownload = window.confirm('ต้องการดาวน์โหลดรายงานหรือไม่?');
-      if (wantsDownload) exportFullReport();
+      const wantsDownload = window.confirm('ต้องการดาวน์โหลดตารางข้อมูลทั้งหมดเป็น PDF หรือไม่?');
+      if (wantsDownload) exportTableReport();
     });
     document.getElementById('viewAllProjects').addEventListener('click', ()=>{
       document.getElementById('sec-table').scrollIntoView({behavior:'smooth'});
     });
   });
   safeStep('initMapControls', initMapControls);
+  safeStep('initDetailModal', initDetailModal);
   safeStep('loadInitialData', ()=> loadData(EMBEDDED_DATA, 'กำลังเชื่อมต่อ Google Sheet...'));
   // If Chart.js hadn't finished loading (or was still loading via the
   // fallback CDN) when the donuts were first drawn, re-render them once it
