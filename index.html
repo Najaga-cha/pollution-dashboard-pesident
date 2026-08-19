@@ -1688,7 +1688,7 @@ function renderPager(elId, totalPages){
   el.querySelectorAll('button[data-p]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const p = parseInt(btn.dataset.p,10);
-      if (!isNaN(p)){ currentPage = p; renderTable(); window.scrollTo({top:0, behavior:'smooth'}); }
+      if (!isNaN(p)){ currentPage = p; renderTable(); }
     });
   });
 }
