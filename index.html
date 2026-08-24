@@ -1083,6 +1083,41 @@ const ENFORCE_ORDER = ['อยู่ระหว่างแนะนำ','อ�
 const COMPLY_COLORS = { 'ok':'#1AA36A', 'partial':'#E6A417', 'bad':'#E0452F' };
 const COMPLY_LABEL = { 'ok':'ปฏิบัติถูกต้อง', 'partial':'ปฏิบัติไม่ครบถ้วน', 'bad':'ไม่ปฏิบัติ' };
 
+// The "รวมกตพ.+สคพ." sheet's "สถานะปัจจุบัน" column doesn't hold the usual
+// enforcement-action wording (อยู่ระหว่างแนะนำ / ออกคำสั่งทางปกครอง /
+// ดำเนินคดีแล้ว) — it holds whatever status text that sheet actually uses
+// (e.g. ปฏิบัติถูกต้อง / ไม่ปฏิบัติ), which never matches those keywords and
+// used to collapse the whole "สถานะการบังคับใช้กฎหมาย" donut into 100%
+// "อื่นๆ". When DYNAMIC_ENFORCE_MODE is on (set in loadData() based on which
+// sheet was just loaded), the enforcement donut instead shows whatever
+// distinct values actually appear in the data, with colors assigned on the
+// fly — every other sheet keeps the original fixed 4-category view.
+let DYNAMIC_ENFORCE_MODE = false;
+let ACTIVE_ENFORCE_ORDER = ENFORCE_ORDER.slice();
+let ACTIVE_ENFORCE_COLORS = Object.assign({}, ENFORCE_COLORS);
+const DYNAMIC_ENFORCE_PALETTE = ['#2B63E0','#1AA36A','#E6A417','#7C5CE0','#0EA5E9','#D946EF','#F97316','#14B8A6'];
+function rebuildActiveEnforceCategories(){
+  if (!DYNAMIC_ENFORCE_MODE){
+    ACTIVE_ENFORCE_ORDER = ENFORCE_ORDER.slice();
+    ACTIVE_ENFORCE_COLORS = Object.assign({}, ENFORCE_COLORS);
+    return;
+  }
+  const counts = {};
+  ALL.forEach(r=>{ const k = enforceBucket(r); counts[k] = (counts[k]||0)+1; });
+  const order = Object.keys(counts).sort((a,b)=> counts[b]-counts[a]);
+  const idx = order.indexOf('อื่นๆ');
+  if (idx > -1 && idx !== order.length-1){ order.splice(idx,1); order.push('อื่นๆ'); }
+  const colors = {};
+  let ci = 0;
+  order.forEach(k=>{
+    if (k === 'อื่นๆ'){ colors[k] = '#94A0B4'; return; }
+    colors[k] = DYNAMIC_ENFORCE_PALETTE[ci % DYNAMIC_ENFORCE_PALETTE.length];
+    ci++;
+  });
+  ACTIVE_ENFORCE_ORDER = order;
+  ACTIVE_ENFORCE_COLORS = colors;
+}
+
 let ALL = [];
 let FILTERED = [];
 let charts = {};
@@ -1148,6 +1183,12 @@ function complyBucket(row){
 }
 function enforceBucket(row){
   const e = normText(row.e);
+  if (DYNAMIC_ENFORCE_MODE){
+    // See DYNAMIC_ENFORCE_MODE comment above — show the sheet's own status
+    // text as-is rather than forcing it into the fixed enforcement-action
+    // categories, which don't apply to this sheet's data.
+    return String(row.e||'').trim() || 'อื่นๆ';
+  }
   if (!e) return 'อื่นๆ';
   // Exact match against the canonical labels first...
   const exact = ENFORCE_ORDER.find(k=> normText(k) === e);
@@ -1160,8 +1201,11 @@ function enforceBucket(row){
   return 'อื่นๆ';
 }
 
-function loadData(payload, sourceLabel){
+function loadData(payload, sourceLabel, opts){
+  opts = opts || {};
+  DYNAMIC_ENFORCE_MODE = !!opts.dynamicEnforce;
   ALL = rowsToObjects(payload);
+  rebuildActiveEnforceCategories();
   document.getElementById('syncLabel').textContent = 'ข้อมูลล่าสุด : ' + (sourceLabel || '—');
   buildFilterOptions();
   applyFilters();
@@ -1327,7 +1371,7 @@ function buildFilterOptions(){
   setMsOptions('fDistrict', uniqueSorted(ALL.map(r=>r.d)));
   setMsOptions('fProject', uniqueSorted(ALL.map(r=>r.j)));
   setMsOptions('fYear', uniqueSorted(ALL.map(r=>r.y)).sort((a,b)=>a-b));
-  setMsOptions('fEnforce', ENFORCE_ORDER);
+  setMsOptions('fEnforce', ACTIVE_ENFORCE_ORDER);
   // Bug fix: the size dropdown used to only ever offer the 4 fixed values
   // that have their own colored quick-chip (ก/ข/ค/ง) — any other size
   // value actually present in the sheet (e.g. a 5th category, blank/other,
@@ -1506,13 +1550,16 @@ function renderDonuts(){
     ['ไม่ปฏิบัติ', buckets.bad, COMPLY_COLORS.bad],
   ].map(([lab,val,col])=>legendRow(lab,val,col,total)).join('');
 
-  // enforcement status
-  const eBuckets = {}; ENFORCE_ORDER.forEach(k=>eBuckets[k]=0);
+  // enforcement status — ACTIVE_ENFORCE_ORDER/COLORS are the fixed 4
+  // categories for normal sheets, or the sheet's own real status values
+  // (dynamically detected) for the "รวมกตพ.+สคพ." sheet — see
+  // DYNAMIC_ENFORCE_MODE above.
+  const eBuckets = {}; ACTIVE_ENFORCE_ORDER.forEach(k=>eBuckets[k]=0);
   FILTERED.forEach(r=> eBuckets[enforceBucket(r)]++ );
-  makeDonut('chartEnforce', ENFORCE_ORDER, ENFORCE_ORDER.map(k=>eBuckets[k]), ENFORCE_ORDER.map(k=>ENFORCE_COLORS[k]));
+  makeDonut('chartEnforce', ACTIVE_ENFORCE_ORDER, ACTIVE_ENFORCE_ORDER.map(k=>eBuckets[k]), ACTIVE_ENFORCE_ORDER.map(k=>ACTIVE_ENFORCE_COLORS[k]));
   document.getElementById('enforceTotal').textContent = total.toLocaleString('th-TH');
   document.getElementById('enforceMid').innerHTML = `<div class="n">${total.toLocaleString('th-TH')}</div><div class="l">ทั้งหมด</div>`;
-  document.getElementById('enforceLegend').innerHTML = ENFORCE_ORDER.map(k=>legendRow(k, eBuckets[k], ENFORCE_COLORS[k], total)).join('');
+  document.getElementById('enforceLegend').innerHTML = ACTIVE_ENFORCE_ORDER.map(k=>legendRow(k, eBuckets[k], ACTIVE_ENFORCE_COLORS[k], total)).join('');
 }
 
 function legendRow(label, val, color, total){
@@ -1568,7 +1615,7 @@ function renderTable(){
       <td>${escapeHtml(r.d||'-')}</td>
       <td>${statusDot(r.w?'yes':'no', r.w?'เชื่อมท่อ':'ไม่เชื่อมท่อ', {yes:'#1AA36A', no:'#E0452F'})}</td>
       <td>${statusDot(bucket, COMPLY_LABEL[bucket], COMPLY_COLORS)}</td>
-      <td>${statusDot(eb, eb, ENFORCE_COLORS)}</td>
+      <td>${statusDot(eb, eb, ACTIVE_ENFORCE_COLORS)}</td>
       <td>${r.y!=null ? r.y : '-'}</td>
       <td>${escapeHtml(r.j||'-')}</td>
       <td><button class="eye-btn" type="button" data-idx="${start+i}" title="ดูรายละเอียด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></td>
@@ -1634,7 +1681,7 @@ function openKpiTableModal(kind, label){
       <td>${escapeHtml(r.d||'-')}</td>
       <td>${statusDot(r.w?'yes':'no', r.w?'เชื่อมท่อ':'ไม่เชื่อมท่อ', {yes:'#1AA36A', no:'#E0452F'})}</td>
       <td>${statusDot(bucket, COMPLY_LABEL[bucket], COMPLY_COLORS)}</td>
-      <td>${statusDot(eb, eb, ENFORCE_COLORS)}</td>
+      <td>${statusDot(eb, eb, ACTIVE_ENFORCE_COLORS)}</td>
       <td>${r.y!=null ? r.y : '-'}</td>
       <td>${escapeHtml(r.j||'-')}</td>
       <td><button class="eye-btn kpi-row-eye" type="button" data-kpirow-idx="${i}" data-kpirow-kind="${kind}" title="ดูรายละเอียด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></td>
@@ -1905,7 +1952,8 @@ function initUpload(){
         });
         if (!rows.length){ alert('ไม่พบข้อมูลที่ตรงกับรูปแบบคอลัมน์ที่คาดไว้ในไฟล์นี้'); return; }
         const payload = { cols:['n','t','c','a','o','s','d','p','w','y','j','st','e'], rows };
-        loadData(payload, 'อัปโหลดโดยผู้ใช้ · ' + file.name + ' · ' + new Date().toLocaleString('th-TH'));
+        const anyRuamSheet = wb.SheetNames.some(isRuamKtpSkpSheet);
+        loadData(payload, 'อัปโหลดโดยผู้ใช้ · ' + file.name + ' · ' + new Date().toLocaleString('th-TH'), {dynamicEnforce: anyRuamSheet});
         setGsheetMsg('โหลดไฟล์ "' + file.name + '" สำเร็จ (' + rows.length.toLocaleString('th-TH') + ' รายการ)', 'ok');
       }catch(err){ alert('อ่านไฟล์ไม่สำเร็จ: ' + err.message); }
     };
@@ -2116,7 +2164,7 @@ async function connectGsheet(rawUrl, sheetName, opts){
     const rows = json.map(o=>mapUploadedRow(o, activeSheetName)).filter(Boolean);
     if (!rows.length) throw new Error('ดึงข้อมูลสำเร็จ แต่ไม่พบแถวที่ตรงกับรูปแบบคอลัมน์ที่คาดไว้');
     const payload = { cols:['n','t','c','a','o','s','d','p','w','y','j','st','e'], rows };
-    loadData(payload, new Date().toLocaleString('th-TH'));
+    loadData(payload, new Date().toLocaleString('th-TH'), {dynamicEnforce: isRuamKtpSkpSheet(activeSheetName)});
     const tabNote = parsed.sheetName ? (' (ชีท "' + parsed.sheetName + '")') : ' (ชีทแรก)';
     setGsheetMsg('เชื่อมต่อสำเร็จ' + tabNote + ' · ดึงข้อมูล ' + rows.length.toLocaleString('th-TH') + ' รายการ', 'ok');
     document.getElementById('gsheetLiveDot').classList.add('on');
@@ -2279,7 +2327,7 @@ function renderPrintSummary(){
   const sewerNo = total - sewerYes;
   const buckets = { ok:0, partial:0, bad:0 };
   FILTERED.forEach(r=> buckets[complyBucket(r)]++ );
-  const eBuckets = {}; ENFORCE_ORDER.forEach(k=>eBuckets[k]=0);
+  const eBuckets = {}; ACTIVE_ENFORCE_ORDER.forEach(k=>eBuckets[k]=0);
   FILTERED.forEach(r=> eBuckets[enforceBucket(r)]++ );
 
   document.getElementById('prDonuts').innerHTML = [
@@ -2292,7 +2340,7 @@ function renderPrintSummary(){
       { label:'ปฏิบัติไม่ครบถ้วน', value:buckets.partial, color:COMPLY_COLORS.partial },
       { label:'ไม่ปฏิบัติ', value:buckets.bad, color:COMPLY_COLORS.bad },
     ], total),
-    prDonutCard('สถานะการบังคับใช้กฎหมาย', ENFORCE_ORDER.map(k=>({ label:k, value:eBuckets[k], color:ENFORCE_COLORS[k] })), total),
+    prDonutCard('สถานะการบังคับใช้กฎหมาย', ACTIVE_ENFORCE_ORDER.map(k=>({ label:k, value:eBuckets[k], color:ACTIVE_ENFORCE_COLORS[k] })), total),
   ].join('');
 
   // Top 5 projects — same ranking logic as the live sidebar panel.
@@ -2340,7 +2388,7 @@ function renderPrintSummary(){
       <td>${escapeHtml(r.d||'-')}</td>
       <td>${prDot(r.w?'#1AA36A':'#E0452F', r.w?'เชื่อมท่อ':'ไม่เชื่อมท่อ')}</td>
       <td>${prDot(COMPLY_COLORS[bucket], COMPLY_LABEL[bucket])}</td>
-      <td>${prDot(ENFORCE_COLORS[eb]||'#94A0B4', eb)}</td>
+      <td>${prDot(ACTIVE_ENFORCE_COLORS[eb]||'#94A0B4', eb)}</td>
     </tr>`;
   }).join('') || `<tr><td colspan="8" style="text-align:center; color:var(--ink-faint); padding:4mm;">ไม่พบข้อมูลที่ตรงกับตัวกรอง</td></tr>`;
 }
@@ -2375,7 +2423,7 @@ function renderPrintTableFull(){
       <td>${escapeHtml(r.d||'-')}</td>
       <td>${prDot(r.w?'#1AA36A':'#E0452F', r.w?'เชื่อมท่อ':'ไม่เชื่อมท่อ')}</td>
       <td>${prDot(COMPLY_COLORS[bucket], COMPLY_LABEL[bucket])}</td>
-      <td>${prDot(ENFORCE_COLORS[eb]||'#94A0B4', eb)}</td>
+      <td>${prDot(ACTIVE_ENFORCE_COLORS[eb]||'#94A0B4', eb)}</td>
       <td>${r.y!=null ? r.y : '-'}</td>
       <td>${escapeHtml(r.j||'-')}</td>
     </tr>`;
