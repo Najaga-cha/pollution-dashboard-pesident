@@ -2192,8 +2192,22 @@ function initGsheetConnect(){
     const raw = urlInput.value.trim();
     const sheetName = getSelectedSheetName();
     if (!raw){ setGsheetMsg('กรุณาวางลิงก์ Google Sheet ก่อน', 'err'); return; }
-    const success = await connectGsheet(raw, sheetName);
-    if (success){ gsheetConfig = { raw, sheetName, autoRefresh:false, refreshMs:REFRESH_MS }; saveGsheetConfig(gsheetConfig); }
+    // If the link being connected is the same spreadsheet as the default
+    // primary sheet (regardless of which tab is picked), always merge in
+    // the second sheet too — otherwise clicking "เชื่อมต่อ & ดึงข้อมูล" from
+    // this dialog would silently drop back to single-sheet totals even
+    // though the dashboard is meant to show both sheets combined.
+    const parsedRaw = parseGsheetInput(raw, null);
+    const parsedDefault = parseGsheetInput(DEFAULT_GSHEET_URL, null);
+    const isDefaultSheet = parsedRaw && parsedDefault && parsedRaw.id === parsedDefault.id;
+    if (isDefaultSheet){
+      const sources = [{ raw, sheetName }, { raw: SECOND_GSHEET_URL, sheetName: '' }];
+      const success = await connectGsheetMulti(sources);
+      if (success){ gsheetConfig = { sources, autoRefresh:false, refreshMs:REFRESH_MS }; saveGsheetConfig(gsheetConfig); }
+    } else {
+      const success = await connectGsheet(raw, sheetName);
+      if (success){ gsheetConfig = { raw, sheetName, autoRefresh:false, refreshMs:REFRESH_MS }; saveGsheetConfig(gsheetConfig); }
+    }
   });
   document.getElementById('gsheetRefreshToggleBtn').addEventListener('click', ()=>{
     if (!gsheetConfig) return;
