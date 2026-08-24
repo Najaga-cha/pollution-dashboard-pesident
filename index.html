@@ -1902,15 +1902,10 @@ function initUpload(){
 
 /* ---------------- Google Sheet live connect (unchanged pipeline) ---------------- */
 const LS_GSHEET = 'pollution_gsheet_config_v2';
-const DEFAULT_GSHEET_URL = 'https://docs.google.com/spreadsheets/d/1PS-WLHHKlSMnHB86J0YTp3httanRNoOgLE7IwmZwrik/edit?usp=sharing';
-// Second data source: rows from this sheet are merged with the default
-// sheet above (concatenated together) rather than replacing it, so the
-// dashboard shows the combined data from both spreadsheets.
-const SECOND_GSHEET_URL = 'https://docs.google.com/spreadsheets/d/1Z5g2P8d1UnOWy_dPdF3FUznpnGsjc2DDGyPgBAE19xg/edit?gid=1157013737#gid=1157013737';
-const DEFAULT_GSHEET_SOURCES = [
-  { raw: DEFAULT_GSHEET_URL, sheetName: '' },
-  { raw: SECOND_GSHEET_URL, sheetName: '' },
-];
+// Updated to the new sheet + tab the user added — this now supersedes the
+// previous default link (it's the up-to-date version of the same data,
+// not a separate dataset to add on top of).
+const DEFAULT_GSHEET_URL = 'https://docs.google.com/spreadsheets/d/1Z5g2P8d1UnOWy_dPdF3FUznpnGsjc2DDGyPgBAE19xg/edit?gid=1157013737#gid=1157013737';
 let gsheetConfig = null;
 let gsheetTimer = null;
 const REFRESH_MS = 60000;
@@ -2118,54 +2113,12 @@ async function connectGsheet(rawUrl, sheetName, opts){
     return false;
   }
 }
-/* ---------------- Multi-sheet connect (merge rows from several sheets) ----------------
-   Fetches CSV from each {raw, sheetName} source and concatenates all their
-   rows into one dataset (rather than the last source overwriting the
-   previous ones), then loads that combined dataset in a single loadData()
-   call so the dashboard reflects every source at once. */
-async function fetchGsheetRows(rawUrl, sheetName){
-  const parsed = parseGsheetInput(rawUrl, sheetName);
-  if (!parsed) throw new Error('รูปแบบลิงก์ไม่ถูกต้อง: ' + rawUrl);
-  const libOk = await ensureLib('XLSX');
-  if (!libOk) throw new Error('โหลดไลบรารีอ่านไฟล์ (XLSX) ไม่สำเร็จ');
-  const csvText = await fetchSheetCsv(parsed);
-  const wb = XLSX.read(csvText, { type:'string' });
-  const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval:null });
-  const rows = json.map(o=>mapUploadedRow(o)).filter(Boolean);
-  return rows;
-}
-async function connectGsheetMulti(sources, opts){
-  opts = opts || {};
-  if (!opts.silent) setGsheetMsg('กำลังเชื่อมต่อและดึงข้อมูลจาก ' + sources.length + ' ชีท...', '');
-  try{
-    const rowSets = await Promise.all(sources.map(s => fetchGsheetRows(s.raw, s.sheetName)));
-    let allRows = [];
-    rowSets.forEach(rows => { allRows = allRows.concat(rows); });
-    if (!allRows.length) throw new Error('ดึงข้อมูลสำเร็จ แต่ไม่พบแถวที่ตรงกับรูปแบบคอลัมน์ที่คาดไว้ในทุกชีท');
-    const payload = { cols:['n','t','c','a','o','s','d','p','w','y','j','st','e'], rows: allRows };
-    loadData(payload, new Date().toLocaleString('th-TH'));
-    setGsheetMsg('เชื่อมต่อสำเร็จ (รวม ' + sources.length + ' ชีท) · ดึงข้อมูล ' + allRows.length.toLocaleString('th-TH') + ' รายการ', 'ok');
-    document.getElementById('gsheetLiveDot').classList.add('on');
-    document.getElementById('gsheetRefreshRow').hidden = false;
-    return true;
-  }catch(err){
-    console.error('เชื่อมต่อ Google Sheet (หลายชีท) ไม่สำเร็จ:', err);
-    setGsheetMsg('เชื่อมต่อไม่สำเร็จ: ' + err.message, 'err');
-    document.getElementById('gsheetLiveDot').classList.remove('on');
-    document.getElementById('syncLabel').textContent = 'เชื่อมต่อ Google Sheet ไม่สำเร็จ (คลิกเพื่อดูสาเหตุ)';
-    return false;
-  }
-}
 function setGsheetAutoRefresh(on, ms){
   if (gsheetTimer){ clearInterval(gsheetTimer); gsheetTimer = null; }
   const label = document.getElementById('gsheetRefreshLabel');
   const btn = document.getElementById('gsheetRefreshToggleBtn');
   if (on){
-    gsheetTimer = setInterval(()=>{
-      if (!gsheetConfig) return;
-      if (gsheetConfig.sources) connectGsheetMulti(gsheetConfig.sources, {silent:true});
-      else connectGsheet(gsheetConfig.raw, gsheetConfig.sheetName, {silent:true});
-    }, ms);
+    gsheetTimer = setInterval(()=>{ if (gsheetConfig) connectGsheet(gsheetConfig.raw, gsheetConfig.sheetName, {silent:true}); }, ms);
     if (label) label.textContent = 'รีเฟรชอัตโนมัติ: ทุก ' + Math.round(ms/1000) + ' วินาที';
   } else if (label) label.textContent = 'รีเฟรชอัตโนมัติ: ปิด';
   if (gsheetConfig){ gsheetConfig.autoRefresh = on; gsheetConfig.refreshMs = ms; saveGsheetConfig(gsheetConfig); }
@@ -2192,32 +2145,14 @@ function initGsheetConnect(){
     const raw = urlInput.value.trim();
     const sheetName = getSelectedSheetName();
     if (!raw){ setGsheetMsg('กรุณาวางลิงก์ Google Sheet ก่อน', 'err'); return; }
-    // If the link being connected is the same spreadsheet as the default
-    // primary sheet (regardless of which tab is picked), always merge in
-    // the second sheet too — otherwise clicking "เชื่อมต่อ & ดึงข้อมูล" from
-    // this dialog would silently drop back to single-sheet totals even
-    // though the dashboard is meant to show both sheets combined.
-    const parsedRaw = parseGsheetInput(raw, null);
-    const parsedDefault = parseGsheetInput(DEFAULT_GSHEET_URL, null);
-    const isDefaultSheet = parsedRaw && parsedDefault && parsedRaw.id === parsedDefault.id;
-    if (isDefaultSheet){
-      const sources = [{ raw, sheetName }, { raw: SECOND_GSHEET_URL, sheetName: '' }];
-      const success = await connectGsheetMulti(sources);
-      if (success){ gsheetConfig = { sources, autoRefresh:false, refreshMs:REFRESH_MS }; saveGsheetConfig(gsheetConfig); }
-    } else {
-      const success = await connectGsheet(raw, sheetName);
-      if (success){ gsheetConfig = { raw, sheetName, autoRefresh:false, refreshMs:REFRESH_MS }; saveGsheetConfig(gsheetConfig); }
-    }
+    const success = await connectGsheet(raw, sheetName);
+    if (success){ gsheetConfig = { raw, sheetName, autoRefresh:false, refreshMs:REFRESH_MS }; saveGsheetConfig(gsheetConfig); }
   });
   document.getElementById('gsheetRefreshToggleBtn').addEventListener('click', ()=>{
     if (!gsheetConfig) return;
     setGsheetAutoRefresh(!gsheetConfig.autoRefresh, gsheetConfig.refreshMs || REFRESH_MS);
   });
-  document.getElementById('gsheetRefreshNowBtn').addEventListener('click', ()=>{
-    if (!gsheetConfig) return;
-    if (gsheetConfig.sources) connectGsheetMulti(gsheetConfig.sources);
-    else connectGsheet(gsheetConfig.raw, gsheetConfig.sheetName);
-  });
+  document.getElementById('gsheetRefreshNowBtn').addEventListener('click', ()=>{ if (gsheetConfig) connectGsheet(gsheetConfig.raw, gsheetConfig.sheetName); });
   document.getElementById('gsheetDisconnectBtn').addEventListener('click', ()=>{
     setGsheetAutoRefresh(false, REFRESH_MS);
     gsheetConfig = null; clearGsheetConfig();
@@ -2228,39 +2163,24 @@ function initGsheetConnect(){
   });
 
   const saved = loadGsheetConfig();
-  if (saved && saved.sources && saved.sources.length){
-    urlInput.value = saved.sources[0].raw;
-    tabInput.value = saved.sources[0].sheetName || '';
-    gsheetConfig = saved;
-    refreshTabList().then(()=> selectSavedTabName(saved.sources[0].sheetName));
-    connectGsheetMulti(saved.sources, {silent:true}).then(ok=>{ if (ok && saved.autoRefresh) setGsheetAutoRefresh(true, saved.refreshMs || REFRESH_MS); });
-  } else if (saved && saved.raw){
-    // Backward-compat: a config saved before the second sheet was added
-    // only has {raw, sheetName}. If that saved link is still just the
-    // original default sheet (i.e. it was never a manual override the
-    // user typed in themselves), upgrade it to the merged two-sheet
-    // config so the second sheet actually gets pulled in. A saved link
-    // that differs from the default is treated as an intentional manual
-    // connection and is left alone (single source, as before).
-    if (saved.raw === DEFAULT_GSHEET_URL && !saved.sheetName){
-      gsheetConfig = { sources: DEFAULT_GSHEET_SOURCES, autoRefresh: saved.autoRefresh !== false, refreshMs: saved.refreshMs || REFRESH_MS };
-      urlInput.value = DEFAULT_GSHEET_URL;
-      refreshTabList();
-      connectGsheetMulti(DEFAULT_GSHEET_SOURCES, {silent:true}).then(ok=>{
-        if (ok){ saveGsheetConfig(gsheetConfig); if (gsheetConfig.autoRefresh) setGsheetAutoRefresh(true, gsheetConfig.refreshMs); }
-      });
-    } else {
-      urlInput.value = saved.raw;
-      tabInput.value = saved.sheetName || '';
-      gsheetConfig = saved;
-      refreshTabList().then(()=> selectSavedTabName(saved.sheetName));
-      connectGsheet(saved.raw, saved.sheetName, {silent:true}).then(ok=>{ if (ok && saved.autoRefresh) setGsheetAutoRefresh(true, saved.refreshMs || REFRESH_MS); });
-    }
+  // Anything saved as a multi-sheet "sources" config (from an earlier,
+  // now-reverted merge experiment) or pointing at the old default link is
+  // stale — drop it and reconnect fresh to the current single default link
+  // below, instead of replaying old/merged data from local storage.
+  const savedIsStale = saved && (saved.sources || (saved.raw && saved.raw !== DEFAULT_GSHEET_URL && saved.raw.indexOf('1PS-WLHHKlSMnHB86J0YTp3httanRNoOgLE7IwmZwrik') !== -1));
+  if (savedIsStale) clearGsheetConfig();
+  const effectiveSaved = savedIsStale ? null : saved;
+  if (effectiveSaved && effectiveSaved.raw){
+    urlInput.value = effectiveSaved.raw;
+    tabInput.value = effectiveSaved.sheetName || '';
+    gsheetConfig = effectiveSaved;
+    refreshTabList().then(()=> selectSavedTabName(effectiveSaved.sheetName));
+    connectGsheet(effectiveSaved.raw, effectiveSaved.sheetName, {silent:true}).then(ok=>{ if (ok && effectiveSaved.autoRefresh) setGsheetAutoRefresh(true, effectiveSaved.refreshMs || REFRESH_MS); });
   } else if (DEFAULT_GSHEET_URL){
     urlInput.value = DEFAULT_GSHEET_URL;
-    gsheetConfig = { sources: DEFAULT_GSHEET_SOURCES, autoRefresh:true, refreshMs:REFRESH_MS };
+    gsheetConfig = { raw: DEFAULT_GSHEET_URL, sheetName:'', autoRefresh:true, refreshMs:REFRESH_MS };
     refreshTabList();
-    connectGsheetMulti(DEFAULT_GSHEET_SOURCES, {silent:true}).then(ok=>{
+    connectGsheet(DEFAULT_GSHEET_URL, '', {silent:true}).then(ok=>{
       if (ok){ saveGsheetConfig(gsheetConfig); setGsheetAutoRefresh(true, REFRESH_MS); }
     });
   }
