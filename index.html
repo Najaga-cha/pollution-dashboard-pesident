@@ -1901,7 +1901,13 @@ function initUpload(){
 }
 
 /* ---------------- Google Sheet live connect (unchanged pipeline) ---------------- */
-const LS_GSHEET = 'pollution_gsheet_config_v2';
+// Bumped v2 -> v3: some browsers had an old/wrong sheet link cached here
+// from before, and that cached link always took priority over
+// DEFAULT_GSHEET_URL below — so the dashboard kept loading a stale sheet
+// even after the default was corrected. Changing the key makes every
+// browser treat old cached configs as "not found" and fall through to the
+// current DEFAULT_GSHEET_URL automatically, with no manual reset needed.
+const LS_GSHEET = 'pollution_gsheet_config_v3';
 const DEFAULT_GSHEET_URL = 'https://docs.google.com/spreadsheets/d/1PS-WLHHKlSMnHB86J0YTp3httanRNoOgLE7IwmZwrik/edit?usp=sharing';
 let gsheetConfig = null;
 let gsheetTimer = null;
