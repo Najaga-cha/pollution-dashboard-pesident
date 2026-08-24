@@ -760,6 +760,9 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
       <select class="tab-quick-select" id="quickTabSelect" title="เลือกหน้าชีทข้อมูลที่จะแสดงในแดชบอร์ด" disabled>
         <option value="">กำลังโหลดหน้าชีท...</option>
       </select>
+      <button class="avatar-btn" id="quickTabRefreshBtn" type="button" title="ดึงรายชื่อหน้าชีทใหม่อีกครั้ง (ถ้าเพิ่งเพิ่มหน้าชีทใน Google Sheet)" style="width:34px; height:34px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6"/></svg>
+      </button>
       <button class="btn-download" id="exportBtn" type="button" title="บันทึกทุกส่วนของแดชบอร์ด (แผนที่, กราฟ, ตารางข้อมูลทั้งหมด) เป็นเอกสารเดียว — เลือก 'บันทึกเป็น PDF' ในหน้าต่างพิมพ์">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
         ดาวน์โหลดรายงาน
@@ -2105,6 +2108,35 @@ async function refreshTabList(){
     setTabStatus('ดึงรายชื่อหน้าชีทอัตโนมัติไม่สำเร็จ (' + err.message + ') กรุณาพิมพ์ชื่อแท็บด้วยตนเอง', 'err');
   }
 }
+// Re-fetches the tab list straight from gsheetConfig (the currently connected
+// link), independent of whatever happens to be typed in the settings modal's
+// URL box. This is what the header's refresh button calls, so picking up a
+// tab that was just added in Google Sheets never requires opening settings.
+async function quickRefreshTabList(){
+  if (!gsheetConfig || !gsheetConfig.raw) return;
+  const parsed = parseGsheetInput(gsheetConfig.raw, null);
+  const quick = document.getElementById('quickTabSelect');
+  if (!parsed || parsed.published) return; // published links can't be auto-listed; nothing to refresh here
+  if (quick) quick.disabled = true;
+  try{
+    const names = await fetchSheetTabList(parsed.id);
+    showTabDropdown(names);
+    const val = gsheetConfig.sheetName || '';
+    if (quick){
+      if (val && !Array.from(quick.options).some(o=>o.value===val)){
+        const opt = document.createElement('option');
+        opt.value = val; opt.textContent = val;
+        quick.appendChild(opt);
+      }
+      quick.value = val;
+    }
+  }catch(e){
+    // Keep whatever list is already showing rather than clearing it on a
+    // transient network failure.
+  } finally {
+    if (quick) quick.disabled = false;
+  }
+}
 
 async function connectGsheet(rawUrl, sheetName, opts){
   opts = opts || {};
@@ -2198,6 +2230,7 @@ function initGsheetConnect(){
   // Header quick switcher: lets the person jump straight to a different
   // sheet page's data without opening the settings modal at all.
   const quickTabSelect = document.getElementById('quickTabSelect');
+  document.getElementById('quickTabRefreshBtn').addEventListener('click', quickRefreshTabList);
   quickTabSelect.addEventListener('change', async ()=>{
     if (!gsheetConfig || !gsheetConfig.raw) return;
     const val = quickTabSelect.value;
