@@ -1848,7 +1848,17 @@ function initMapControls(){
 
 /* ---------------- Upload mapping (shared by file-upload + Google Sheet) ---------------- */
 function pick(o, keys){ for(const k of keys){ if(o[k]!==undefined && o[k]!==null && o[k]!=='') return o[k]; } return null; }
-function mapUploadedRow(o){
+// The "รวมกตพ.+สคพ.ทั้งหมด" sheet doesn't have its own
+// "สถานะการบังคับใช้กฎหมาย" column like the other sheets do — it only has
+// "สถานะปัจจุบัน". Without this, every row's enforce field comes back empty
+// and the "สถานะการบังคับใช้กฎหมาย" donut collapses to 100% "อื่นๆ". So for
+// that sheet specifically, fall back to reading the enforcement status from
+// "สถานะปัจจุบัน" as well.
+function isRuamKtpSkpSheet(sheetName){
+  const n = String(sheetName||'');
+  return n.includes('รวมกตพ') && n.includes('สคพ');
+}
+function mapUploadedRow(o, sheetName){
   const name = pick(o, ['ชื่อโครงการ','ชื่อแหล่งกำเนิดมลพิษ','name']);
   if (!name) return null;
   const rawStatus = String(pick(o, ['สถานะปัจจุบัน','การปฏิบัติตามกฎหมายในการระบายน้ำทิ้ง','status'])||'').trim();
@@ -1856,7 +1866,10 @@ function mapUploadedRow(o){
   const lat = parseFloat(pick(o,['lat','ละติจูด']));
   const lng = parseFloat(pick(o,['long','ลองจิจูด','lng']));
   const year = pick(o, ['ปีงบประมาณ','ปีงบประมาณที่เริ่มตรวจ','year']);
-  const enforce = String(pick(o, ['สถานะการบังคับใช้กฎหมาย','enforcement'])||'').trim();
+  const enforceKeys = isRuamKtpSkpSheet(sheetName)
+    ? ['สถานะปัจจุบัน','สถานะการบังคับใช้กฎหมาย','enforcement']
+    : ['สถานะการบังคับใช้กฎหมาย','enforcement'];
+  const enforce = String(pick(o, enforceKeys)||'').trim();
   const compliantBool = rawStatus === 'ปฏิบัติถูกต้อง' || rawStatus === 'ปฏิบัติตามกฎหมาย';
   return [
     String(name).trim(),
@@ -1885,11 +1898,11 @@ function initUpload(){
     reader.onload = ev=>{
       try{
         const wb = XLSX.read(ev.target.result, {type:'binary', cellDates:false});
-        let combined = [];
+        let rows = [];
         wb.SheetNames.forEach(name=>{
-          combined = combined.concat(XLSX.utils.sheet_to_json(wb.Sheets[name], {defval:null}));
+          const sheetJson = XLSX.utils.sheet_to_json(wb.Sheets[name], {defval:null});
+          rows = rows.concat(sheetJson.map(o=>mapUploadedRow(o, name)).filter(Boolean));
         });
-        const rows = combined.map(o=>mapUploadedRow(o)).filter(Boolean);
         if (!rows.length){ alert('ไม่พบข้อมูลที่ตรงกับรูปแบบคอลัมน์ที่คาดไว้ในไฟล์นี้'); return; }
         const payload = { cols:['n','t','c','a','o','s','d','p','w','y','j','st','e'], rows };
         loadData(payload, 'อัปโหลดโดยผู้ใช้ · ' + file.name + ' · ' + new Date().toLocaleString('th-TH'));
@@ -1901,13 +1914,7 @@ function initUpload(){
 }
 
 /* ---------------- Google Sheet live connect (unchanged pipeline) ---------------- */
-// Bumped v2 -> v3: some browsers had an old/wrong sheet link cached here
-// from before, and that cached link always took priority over
-// DEFAULT_GSHEET_URL below — so the dashboard kept loading a stale sheet
-// even after the default was corrected. Changing the key makes every
-// browser treat old cached configs as "not found" and fall through to the
-// current DEFAULT_GSHEET_URL automatically, with no manual reset needed.
-const LS_GSHEET = 'pollution_gsheet_config_v3';
+const LS_GSHEET = 'pollution_gsheet_config_v2';
 const DEFAULT_GSHEET_URL = 'https://docs.google.com/spreadsheets/d/1PS-WLHHKlSMnHB86J0YTp3httanRNoOgLE7IwmZwrik/edit?usp=sharing';
 let gsheetConfig = null;
 let gsheetTimer = null;
@@ -2099,7 +2106,8 @@ async function connectGsheet(rawUrl, sheetName, opts){
     const csvText = await fetchSheetCsv(parsed);
     const wb = XLSX.read(csvText, { type:'string' });
     const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval:null });
-    const rows = json.map(o=>mapUploadedRow(o)).filter(Boolean);
+    const activeSheetName = parsed.sheetName || wb.SheetNames[0];
+    const rows = json.map(o=>mapUploadedRow(o, activeSheetName)).filter(Boolean);
     if (!rows.length) throw new Error('ดึงข้อมูลสำเร็จ แต่ไม่พบแถวที่ตรงกับรูปแบบคอลัมน์ที่คาดไว้');
     const payload = { cols:['n','t','c','a','o','s','d','p','w','y','j','st','e'], rows };
     loadData(payload, new Date().toLocaleString('th-TH'));
