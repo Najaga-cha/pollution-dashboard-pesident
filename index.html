@@ -81,6 +81,16 @@ header.topbar{
 .sync-chip svg{width:14px; height:14px; flex-shrink:0;}
 .sync-chip .live-dot{width:6px; height:6px; border-radius:50%; background:var(--ink-faint); flex-shrink:0;}
 .sync-chip .live-dot.on{background:#41D98C; box-shadow:0 0 0 3px rgba(65,217,140,.28);}
+.tab-quick-select{
+  display:flex; align-items:center; gap:7px; font-size:12.5px; color:rgba(255,255,255,.85);
+  background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14);
+  padding:8px 30px 8px 13px; border-radius:100px; cursor:pointer;
+  font-family:inherit; appearance:none; max-width:220px; text-overflow:ellipsis;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23fff' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 13px center;
+}
+.tab-quick-select:disabled{opacity:.55; cursor:default;}
+.tab-quick-select option{color:var(--ink); background:#fff;}
 .btn-download{
   display:inline-flex; align-items:center; gap:8px; background:#fff; color:var(--navy);
   border:none; border-radius:10px; padding:10px 16px; font-size:13px; font-weight:600;
@@ -747,6 +757,9 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
         <span id="syncLabel">ข้อมูลล่าสุด : กำลังเชื่อมต่อ...</span>
       </button>
+      <select class="tab-quick-select" id="quickTabSelect" title="เลือกหน้าชีทข้อมูลที่จะแสดงในแดชบอร์ด" disabled>
+        <option value="">กำลังโหลดหน้าชีท...</option>
+      </select>
       <button class="btn-download" id="exportBtn" type="button" title="บันทึกทุกส่วนของแดชบอร์ด (แผนที่, กราฟ, ตารางข้อมูลทั้งหมด) เป็นเอกสารเดียว — เลือก 'บันทึกเป็น PDF' ในหน้าต่างพิมพ์">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
         ดาวน์โหลดรายงาน
@@ -2033,14 +2046,21 @@ async function fetchSheetTabList(id){
 function showTabDropdown(names){
   const select = document.getElementById('gsheetTabSelect');
   const input = document.getElementById('gsheetTabInput');
-  select.innerHTML = '<option value="">ใช้ชีทแรกโดยอัตโนมัติ</option>' +
+  const optionsHtml = '<option value="">ใช้ชีทแรกโดยอัตโนมัติ</option>' +
     names.map(n => `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
+  select.innerHTML = optionsHtml;
   select.hidden = false;
   input.hidden = true;
+  // Mirror the same tab list into the always-visible header switcher so the
+  // person can jump between sheet pages without opening the settings modal.
+  const quick = document.getElementById('quickTabSelect');
+  if (quick){ quick.innerHTML = optionsHtml; quick.disabled = false; }
 }
 function showTabManualInput(){
   document.getElementById('gsheetTabSelect').hidden = true;
   document.getElementById('gsheetTabInput').hidden = false;
+  const quick = document.getElementById('quickTabSelect');
+  if (quick){ quick.innerHTML = '<option value="">ไม่พบรายชื่อหน้าชีท</option>'; quick.disabled = true; }
 }
 function selectSavedTabName(name){
   if (!name) return;
@@ -2105,6 +2125,16 @@ async function connectGsheet(rawUrl, sheetName, opts){
     setGsheetMsg('เชื่อมต่อสำเร็จ' + tabNote + ' · ดึงข้อมูล ' + rows.length.toLocaleString('th-TH') + ' รายการ', 'ok');
     document.getElementById('gsheetLiveDot').classList.add('on');
     document.getElementById('gsheetRefreshRow').hidden = false;
+    const quick = document.getElementById('quickTabSelect');
+    if (quick && !quick.disabled){
+      const val = parsed.sheetName || '';
+      if (val && !Array.from(quick.options).some(o=>o.value===val)){
+        const opt = document.createElement('option');
+        opt.value = val; opt.textContent = val;
+        quick.appendChild(opt);
+      }
+      quick.value = val;
+    }
     return true;
   }catch(err){
     console.error('เชื่อมต่อ Google Sheet ไม่สำเร็จ:', err);
@@ -2161,6 +2191,28 @@ function initGsheetConnect(){
     document.getElementById('gsheetLiveDot').classList.remove('on');
     setGsheetMsg('ยกเลิกการเชื่อมต่อแล้ว', '');
     loadData(EMBEDDED_DATA, 'ยังไม่ได้เชื่อมต่อ Google Sheet');
+    const quick = document.getElementById('quickTabSelect');
+    if (quick){ quick.innerHTML = '<option value="">ยังไม่ได้เชื่อมต่อ</option>'; quick.disabled = true; }
+  });
+
+  // Header quick switcher: lets the person jump straight to a different
+  // sheet page's data without opening the settings modal at all.
+  const quickTabSelect = document.getElementById('quickTabSelect');
+  quickTabSelect.addEventListener('change', async ()=>{
+    if (!gsheetConfig || !gsheetConfig.raw) return;
+    const val = quickTabSelect.value;
+    quickTabSelect.disabled = true;
+    const ok = await connectGsheet(gsheetConfig.raw, val);
+    quickTabSelect.disabled = false;
+    if (ok){
+      gsheetConfig.sheetName = val;
+      saveGsheetConfig(gsheetConfig);
+      // Mirror the choice into the settings modal's own tab controls too.
+      if (!tabSelect.hidden) tabSelect.value = val;
+      tabInput.value = val;
+    } else {
+      quickTabSelect.value = gsheetConfig.sheetName || '';
+    }
   });
 
   const saved = loadGsheetConfig();
