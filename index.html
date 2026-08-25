@@ -913,7 +913,7 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
             <div class="donut-legend" id="complianceLegend"></div>
           </div>
 
-          <div class="donut-sub">
+          <div class="donut-sub" id="enforceDonutSub">
             <div class="panel-title">สถานะการบังคับใช้กฎหมาย</div>
             <div class="donut-center"><canvas id="chartEnforce"></canvas><div class="donut-mid" id="enforceMid"></div></div>
             <div class="donut-total">ทั้งหมด <b id="enforceTotal">0</b> แห่ง</div>
@@ -1093,6 +1093,11 @@ const COMPLY_LABEL = { 'ok':'ปฏิบัติถูกต้อง', 'parti
 // distinct values actually appear in the data, with colors assigned on the
 // fly — every other sheet keeps the original fixed 4-category view.
 let DYNAMIC_ENFORCE_MODE = false;
+// When the person connects to a Google Sheet using "ใช้ชีทแรกโดยอัตโนมัติ"
+// (auto-use the first tab, i.e. no specific tab name was chosen), the
+// "สถานะการบังคับใช้กฎหมาย" donut isn't meaningful for that data, so it's
+// hidden — both on the live dashboard and on the print summary.
+let HIDE_ENFORCE_CHART = false;
 let ACTIVE_ENFORCE_ORDER = ENFORCE_ORDER.slice();
 let ACTIVE_ENFORCE_COLORS = Object.assign({}, ENFORCE_COLORS);
 const DYNAMIC_ENFORCE_PALETTE = ['#2B63E0','#1AA36A','#E6A417','#7C5CE0','#0EA5E9','#D946EF','#F97316','#14B8A6'];
@@ -1204,6 +1209,7 @@ function enforceBucket(row){
 function loadData(payload, sourceLabel, opts){
   opts = opts || {};
   DYNAMIC_ENFORCE_MODE = !!opts.dynamicEnforce;
+  HIDE_ENFORCE_CHART = !!opts.hideEnforceChart;
   ALL = rowsToObjects(payload);
   rebuildActiveEnforceCategories();
   document.getElementById('syncLabel').textContent = 'ข้อมูลล่าสุด : ' + (sourceLabel || '—');
@@ -1528,6 +1534,12 @@ function makeDonut(canvasId, labels, data, colors){
 function renderDonuts(){
   const total = FILTERED.length;
 
+  // Hide the enforcement-status donut entirely when the connected sheet is
+  // the auto-selected first tab (see HIDE_ENFORCE_CHART above).
+  const enforceSub = document.getElementById('enforceDonutSub');
+  if (enforceSub) enforceSub.hidden = HIDE_ENFORCE_CHART;
+  if (HIDE_ENFORCE_CHART) destroyChart('chartEnforce');
+
   // เชื่อมท่อ / ไม่เชื่อมท่อ
   const sewerYes = FILTERED.filter(r=>r.w).length, sewerNo = total - sewerYes;
   makeDonut('chartSewer', ['เชื่อมท่อ','ไม่เชื่อมท่อ'], [sewerYes, sewerNo], ['#1AA36A','#D8DEE9']);
@@ -1554,12 +1566,14 @@ function renderDonuts(){
   // categories for normal sheets, or the sheet's own real status values
   // (dynamically detected) for the "รวมกตพ.+สคพ." sheet — see
   // DYNAMIC_ENFORCE_MODE above.
-  const eBuckets = {}; ACTIVE_ENFORCE_ORDER.forEach(k=>eBuckets[k]=0);
-  FILTERED.forEach(r=> eBuckets[enforceBucket(r)]++ );
-  makeDonut('chartEnforce', ACTIVE_ENFORCE_ORDER, ACTIVE_ENFORCE_ORDER.map(k=>eBuckets[k]), ACTIVE_ENFORCE_ORDER.map(k=>ACTIVE_ENFORCE_COLORS[k]));
-  document.getElementById('enforceTotal').textContent = total.toLocaleString('th-TH');
-  document.getElementById('enforceMid').innerHTML = `<div class="n">${total.toLocaleString('th-TH')}</div><div class="l">ทั้งหมด</div>`;
-  document.getElementById('enforceLegend').innerHTML = ACTIVE_ENFORCE_ORDER.map(k=>legendRow(k, eBuckets[k], ACTIVE_ENFORCE_COLORS[k], total)).join('');
+  if (!HIDE_ENFORCE_CHART){
+    const eBuckets = {}; ACTIVE_ENFORCE_ORDER.forEach(k=>eBuckets[k]=0);
+    FILTERED.forEach(r=> eBuckets[enforceBucket(r)]++ );
+    makeDonut('chartEnforce', ACTIVE_ENFORCE_ORDER, ACTIVE_ENFORCE_ORDER.map(k=>eBuckets[k]), ACTIVE_ENFORCE_ORDER.map(k=>ACTIVE_ENFORCE_COLORS[k]));
+    document.getElementById('enforceTotal').textContent = total.toLocaleString('th-TH');
+    document.getElementById('enforceMid').innerHTML = `<div class="n">${total.toLocaleString('th-TH')}</div><div class="l">ทั้งหมด</div>`;
+    document.getElementById('enforceLegend').innerHTML = ACTIVE_ENFORCE_ORDER.map(k=>legendRow(k, eBuckets[k], ACTIVE_ENFORCE_COLORS[k], total)).join('');
+  }
 }
 
 function legendRow(label, val, color, total){
@@ -2164,7 +2178,10 @@ async function connectGsheet(rawUrl, sheetName, opts){
     const rows = json.map(o=>mapUploadedRow(o, activeSheetName)).filter(Boolean);
     if (!rows.length) throw new Error('ดึงข้อมูลสำเร็จ แต่ไม่พบแถวที่ตรงกับรูปแบบคอลัมน์ที่คาดไว้');
     const payload = { cols:['n','t','c','a','o','s','d','p','w','y','j','st','e'], rows };
-    loadData(payload, new Date().toLocaleString('th-TH'), {dynamicEnforce: isRuamKtpSkpSheet(activeSheetName)});
+    // No tab name was explicitly chosen -> this is the "ใช้ชีทแรกโดยอัตโนมัติ"
+    // (auto first-tab) case, so hide the enforcement-status donut for it.
+    const usedFirstTabAuto = !parsed.sheetName;
+    loadData(payload, new Date().toLocaleString('th-TH'), {dynamicEnforce: isRuamKtpSkpSheet(activeSheetName), hideEnforceChart: usedFirstTabAuto});
     const tabNote = parsed.sheetName ? (' (ชีท "' + parsed.sheetName + '")') : ' (ชีทแรก)';
     setGsheetMsg('เชื่อมต่อสำเร็จ' + tabNote + ' · ดึงข้อมูล ' + rows.length.toLocaleString('th-TH') + ' รายการ', 'ok');
     document.getElementById('gsheetLiveDot').classList.add('on');
@@ -2340,7 +2357,9 @@ function renderPrintSummary(){
       { label:'ปฏิบัติไม่ครบถ้วน', value:buckets.partial, color:COMPLY_COLORS.partial },
       { label:'ไม่ปฏิบัติ', value:buckets.bad, color:COMPLY_COLORS.bad },
     ], total),
-    prDonutCard('สถานะการบังคับใช้กฎหมาย', ACTIVE_ENFORCE_ORDER.map(k=>({ label:k, value:eBuckets[k], color:ACTIVE_ENFORCE_COLORS[k] })), total),
+    // Skip the enforcement-status donut when the connected sheet is the
+    // auto-selected first tab (see HIDE_ENFORCE_CHART above).
+    HIDE_ENFORCE_CHART ? '' : prDonutCard('สถานะการบังคับใช้กฎหมาย', ACTIVE_ENFORCE_ORDER.map(k=>({ label:k, value:eBuckets[k], color:ACTIVE_ENFORCE_COLORS[k] })), total),
   ].join('');
 
   // Top 5 projects — same ranking logic as the live sidebar panel.
