@@ -508,9 +508,14 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
      a column of 3 stacked donuts, which made the right side far taller
      than the map and looked lopsided. Shrink the map and let the donuts
      wrap two-per-row instead, so map + charts read as one balanced block. */
-  .insight-row{grid-template-columns:.9fr 1.2fr; align-items:start;}
+  .insight-row{grid-template-columns:.9fr 1.2fr;}
   .insight-row .top5-panel{grid-column:1 / -1;}
-  .map-panel #mapview{height:300px;}
+  /* Let the map panel stretch to match whatever height the donut panel
+     ends up at (it varies — 2 donuts side by side is short, 3 donuts with
+     a full legend list is much taller) instead of leaving a short, fixed-
+     height map with empty space, or a map far shorter than the donuts. */
+  .map-panel .map-canvas-wrap{flex:1; min-height:0; display:flex; flex-direction:column;}
+  .map-panel #mapview{height:auto; flex:1; min-height:260px;}
   .donut-card-group{flex-direction:row; flex-wrap:wrap; row-gap:18px; padding:18px 10px 16px;}
   .donut-sub{flex:1 1 150px; min-width:130px; padding:0 10px;}
   .donut-sub:not(:first-child){border-left:1px solid var(--line); border-top:none; padding-top:0; margin-top:0;}
