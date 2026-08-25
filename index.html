@@ -315,6 +315,11 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
   text-align:center; min-height:2.7em; display:flex; align-items:center; justify-content:center;
 }
 .donut-sub canvas{width:100% !important; max-width:172px; max-height:172px;}
+/* .donut-sub sets display:flex unconditionally above, which (same CSS
+   specificity as the browser's built-in [hidden]{display:none}, but author
+   styles win over user-agent styles regardless of order) silently canceled
+   out the hidden attribute. Make hidden explicitly win here. */
+.donut-sub[hidden]{display:none !important;}
 /* When only 2 of the 3 donuts are shown (enforcement chart hidden), stop
    them from stretching edge-to-edge — cap their width and center the pair
    so the group still reads as a tidy, intentional layout. */
