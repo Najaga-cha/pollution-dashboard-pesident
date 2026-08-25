@@ -503,7 +503,25 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
 .kpi-table-scroll{margin-top:14px; overflow-y:auto; flex:1;}
 .kpi-table-scroll table.datatable thead th{position:sticky; top:0; z-index:1;}
 
-@media (max-width:1180px){
+@media (min-width:981px) and (max-width:1180px){
+  /* Tablet landscape (sidebar still visible): the map used to sit next to
+     a column of 3 stacked donuts, which made the right side far taller
+     than the map and looked lopsided. Shrink the map and let the donuts
+     wrap two-per-row instead, so map + charts read as one balanced block. */
+  .insight-row{grid-template-columns:.9fr 1.2fr; align-items:start;}
+  .insight-row .top5-panel{grid-column:1 / -1;}
+  .map-panel #mapview{height:300px;}
+  .donut-card-group{flex-direction:row; flex-wrap:wrap; row-gap:18px; padding:18px 10px 16px;}
+  .donut-sub{flex:1 1 150px; min-width:130px; padding:0 10px;}
+  .donut-sub:not(:first-child){border-left:1px solid var(--line); border-top:none; padding-top:0; margin-top:0;}
+  .donut-sub:nth-child(3){flex-basis:100%; border-left:none; border-top:1px solid var(--line); padding-top:16px; margin-top:16px;}
+  .donut-sub .panel-title{font-size:11.5px; min-height:2.3em;}
+  .donut-sub canvas{max-width:120px !important; max-height:120px !important;}
+  .donut-total{font-size:10.5px; margin-top:8px;}
+  .donut-legend{margin-top:8px; gap:5px;}
+  .donut-legend .row{font-size:10px;}
+}
+@media (max-width:980px){
   .insight-row{grid-template-columns:1.3fr 1fr;}
   .insight-row .top5-panel{grid-column:1 / -1;}
   /* Keep the map and the donut charts sharing the same row instead of the
