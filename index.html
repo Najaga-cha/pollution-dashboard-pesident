@@ -315,6 +315,14 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
   text-align:center; min-height:2.7em; display:flex; align-items:center; justify-content:center;
 }
 .donut-sub canvas{width:100% !important; max-width:172px; max-height:172px;}
+/* When only 2 of the 3 donuts are shown (enforcement chart hidden), stop
+   them from stretching edge-to-edge — cap their width and center the pair
+   so the group still reads as a tidy, intentional layout. */
+.donut-card-group.two-up{justify-content:center;}
+.donut-card-group.two-up .donut-sub{flex:0 1 300px;}
+@media (max-width:639px){
+  .donut-card-group.two-up .donut-sub{flex:1 1 auto;}
+}
 .donut-center{position:relative; width:100%; display:flex; justify-content:center;}
 .donut-mid{
   position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none;
@@ -1535,9 +1543,13 @@ function renderDonuts(){
   const total = FILTERED.length;
 
   // Hide the enforcement-status donut entirely when the connected sheet is
-  // the auto-selected first tab (see HIDE_ENFORCE_CHART above).
+  // the auto-selected first tab (see HIDE_ENFORCE_CHART above), and let the
+  // remaining two donuts re-center into a tidy pair instead of a wide,
+  // sparsely-filled row.
   const enforceSub = document.getElementById('enforceDonutSub');
+  const donutGroup = enforceSub ? enforceSub.closest('.donut-card-group') : null;
   if (enforceSub) enforceSub.hidden = HIDE_ENFORCE_CHART;
+  if (donutGroup) donutGroup.classList.toggle('two-up', HIDE_ENFORCE_CHART);
   if (HIDE_ENFORCE_CHART) destroyChart('chartEnforce');
 
   // เชื่อมท่อ / ไม่เชื่อมท่อ
