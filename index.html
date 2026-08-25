@@ -1936,6 +1936,13 @@ function isRuamKtpSkpSheet(sheetName){
   const n = String(sheetName||'');
   return n.includes('รวมกตพ') && n.includes('สคพ');
 }
+// The "แหล่ง กทม.+สคพ." tab should behave like the "ใช้ชีทแรกโดยอัตโนมัติ"
+// case visually — the enforcement-status donut hidden, remaining donuts
+// re-centered — even though it's picked explicitly from the dropdown.
+function isKtmSkpSheet(sheetName){
+  const n = String(sheetName||'');
+  return n.includes('กทม') && n.includes('สคพ') && !n.includes('รวมกตพ');
+}
 function mapUploadedRow(o, sheetName){
   const name = pick(o, ['ชื่อโครงการ','ชื่อแหล่งกำเนิดมลพิษ','name']);
   if (!name) return null;
@@ -2201,7 +2208,8 @@ async function connectGsheet(rawUrl, sheetName, opts){
     // No tab name was explicitly chosen -> this is the "ใช้ชีทแรกโดยอัตโนมัติ"
     // (auto first-tab) case, so hide the enforcement-status donut for it.
     const usedFirstTabAuto = !parsed.sheetName;
-    loadData(payload, new Date().toLocaleString('th-TH'), {dynamicEnforce: isRuamKtpSkpSheet(activeSheetName), hideEnforceChart: usedFirstTabAuto});
+    const hideEnforceChart = usedFirstTabAuto || isKtmSkpSheet(activeSheetName);
+    loadData(payload, new Date().toLocaleString('th-TH'), {dynamicEnforce: isRuamKtpSkpSheet(activeSheetName), hideEnforceChart});
     const tabNote = parsed.sheetName ? (' (ชีท "' + parsed.sheetName + '")') : ' (ชีทแรก)';
     setGsheetMsg('เชื่อมต่อสำเร็จ' + tabNote + ' · ดึงข้อมูล ' + rows.length.toLocaleString('th-TH') + ' รายการ', 'ok');
     document.getElementById('gsheetLiveDot').classList.add('on');
