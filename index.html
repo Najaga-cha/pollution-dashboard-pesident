@@ -2001,6 +2001,9 @@ function initUpload(){
 // current DEFAULT_GSHEET_URL automatically, with no manual reset needed.
 const LS_GSHEET = 'pollution_gsheet_config_v3';
 const DEFAULT_GSHEET_URL = 'https://docs.google.com/spreadsheets/d/1PS-WLHHKlSMnHB86J0YTp3httanRNoOgLE7IwmZwrik/edit?usp=sharing';
+// Default tab to use/pre-select for people who haven't picked or saved a
+// tab of their own — instead of defaulting to "ใช้ชีทแรกโดยอัตโนมัติ".
+const DEFAULT_GSHEET_TAB_NAME = 'แหล่ง กทม.+สคพ.';
 let gsheetConfig = null;
 let gsheetTimer = null;
 const REFRESH_MS = 60000;
@@ -2270,9 +2273,9 @@ function initGsheetConnect(){
     connectGsheet(saved.raw, saved.sheetName, {silent:true}).then(ok=>{ if (ok && saved.autoRefresh) setGsheetAutoRefresh(true, saved.refreshMs || REFRESH_MS); });
   } else if (DEFAULT_GSHEET_URL){
     urlInput.value = DEFAULT_GSHEET_URL;
-    gsheetConfig = { raw: DEFAULT_GSHEET_URL, sheetName:'', autoRefresh:true, refreshMs:REFRESH_MS };
-    refreshTabList();
-    connectGsheet(DEFAULT_GSHEET_URL, '', {silent:true}).then(ok=>{
+    gsheetConfig = { raw: DEFAULT_GSHEET_URL, sheetName: DEFAULT_GSHEET_TAB_NAME, autoRefresh:true, refreshMs:REFRESH_MS };
+    refreshTabList().then(()=> selectSavedTabName(DEFAULT_GSHEET_TAB_NAME));
+    connectGsheet(DEFAULT_GSHEET_URL, DEFAULT_GSHEET_TAB_NAME, {silent:true}).then(ok=>{
       if (ok){ saveGsheetConfig(gsheetConfig); setGsheetAutoRefresh(true, REFRESH_MS); }
     });
   }
