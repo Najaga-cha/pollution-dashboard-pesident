@@ -120,6 +120,24 @@ header.topbar{
 }
 .sidebar-illustration svg{width:118px; height:auto;}
 
+/* ---- Mobile bottom nav (shown when the sidebar is hidden, <=980px) ---- */
+.mobile-nav{
+  display:none; position:fixed; left:0; right:0; bottom:0; z-index:120;
+  background:var(--card); border-top:1px solid var(--line);
+  box-shadow:0 -6px 18px -10px rgba(15,30,60,.18);
+  padding:6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+  overflow-x:auto; -webkit-overflow-scrolling:touch;
+}
+.mobile-nav-inner{display:flex; align-items:stretch; min-width:max-content; width:100%;}
+.mobile-nav button{
+  flex:1 1 0; min-width:64px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:3px; background:none; border:none; border-radius:10px; padding:7px 6px;
+  font-size:10.5px; font-weight:500; color:var(--ink-faint); cursor:pointer; white-space:nowrap;
+}
+.mobile-nav button svg{width:19px; height:19px; flex-shrink:0;}
+.mobile-nav button.active{color:var(--blue);}
+.mobile-nav button:active{background:var(--gray-soft);}
+
 /* ---- Main ---- */
 main.content{flex:1; min-width:0; padding:20px 24px 60px;}
 
@@ -325,7 +343,10 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
    so the group still reads as a tidy, intentional layout. */
 .donut-card-group.two-up{justify-content:center;}
 .donut-card-group.two-up .donut-sub{flex:0 1 300px;}
-@media (max-width:639px){
+@media (max-width:1180px){
+  /* .donut-card-group switches to a vertical stack at this width (see the
+     max-width:1180px layout rule) — flex-basis:300px would apply to height
+     on that axis, not width, so reset it to avoid odd vertical gaps. */
   .donut-card-group.two-up .donut-sub{flex:1 1 auto;}
 }
 .donut-center{position:relative; width:100%; display:flex; justify-content:center;}
@@ -483,9 +504,13 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
 .kpi-table-scroll table.datatable thead th{position:sticky; top:0; z-index:1;}
 
 @media (max-width:1180px){
-  .insight-row{grid-template-columns:1fr 1fr; }
-  .insight-row .top5-panel{grid-column:span 2;}
-  .insight-row .donut-card-group{grid-column:span 2;}
+  .insight-row{grid-template-columns:1.3fr 1fr;}
+  .insight-row .top5-panel{grid-column:1 / -1;}
+  /* Keep the map and the donut charts sharing the same row instead of the
+     donuts dropping into their own separate full-width block below — stack
+     the 3 donuts vertically so they stay readable in the narrower column. */
+  .donut-card-group{flex-direction:column;}
+  .donut-sub:not(:first-child){border-left:none; border-top:1px solid var(--line); padding-top:16px; margin-top:16px;}
 }
 @media (max-width:640px){
   .donut-card-group{flex-direction:column;}
@@ -493,10 +518,13 @@ table.datatable tbody tr:hover{background:#F7F9FC;}
 }
 @media (max-width:980px){
   .sidebar{display:none;}
+  .mobile-nav{display:block;}
+  .content{padding-bottom:78px;}
   .kpi-row{grid-template-columns:1fr;}
   .filter-row{grid-template-columns:1fr 1fr;}
   .filter-row .field-group::after, .filter-row2 .field-group::after{ display:none; }
   .insight-row{grid-template-columns:1fr;}
+  .insight-row .top5-panel{grid-column:auto;}
 }
 
 /* ================= Save / Print report =================
@@ -821,6 +849,38 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
       </svg>
     </div>
   </aside>
+
+  <!-- Mobile bottom nav — mirrors the sidebar's nav items, shown only when
+       the sidebar itself is hidden (<=980px, see CSS above) so touch
+       devices always have a way to navigate. -->
+  <nav class="mobile-nav" id="mobileNav">
+    <div class="mobile-nav-inner">
+      <button class="active" data-target="sec-overview">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></svg>
+        ภาพรวม
+      </button>
+      <button data-target="sec-table">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        แหล่งกำเนิด
+      </button>
+      <button data-target="sec-map">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20 3 17V4l6 3 6-3 6 3v13l-6-3-6 3Z"/><path d="M9 7v13M15 4v13"/></svg>
+        แผนที่
+      </button>
+      <button data-target="sec-table">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><rect x="3" y="4" width="18" height="16" rx="2"/></svg>
+        โครงการ
+      </button>
+      <button data-target="sec-table">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8M8 9h2"/></svg>
+        รายงาน
+      </button>
+      <button id="navSettingsMobile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        ตั้งค่า
+      </button>
+    </div>
+  </nav>
 
   <main class="content">
 
@@ -2246,7 +2306,7 @@ function initGsheetConnect(){
   const urlInput = document.getElementById('gsheetUrlInput');
   const tabInput = document.getElementById('gsheetTabInput');
   const tabSelect = document.getElementById('gsheetTabSelect');
-  const openBtns = [document.getElementById('gsheetOpenBtn'), document.getElementById('settingsAvatarBtn'), document.getElementById('navSettings')];
+  const openBtns = [document.getElementById('gsheetOpenBtn'), document.getElementById('settingsAvatarBtn'), document.getElementById('navSettings'), document.getElementById('navSettingsMobile')];
   openBtns.forEach(b=> b && b.addEventListener('click', ()=>{
     modal.hidden = false;
     if (urlInput.value.trim() && tabSelect.options.length <= 1) refreshTabList();
@@ -2594,9 +2654,14 @@ function exportCsv(){
 
 /* ---------------- Sidebar nav scroll ---------------- */
 function initSideNav(){
-  document.querySelectorAll('.side-nav button[data-target]').forEach(btn=>{
+  document.querySelectorAll('.side-nav button[data-target], .mobile-nav button[data-target]').forEach((btn, i, all)=>{
     btn.addEventListener('click', ()=>{
-      document.querySelectorAll('.side-nav button').forEach(b=>b.classList.remove('active'));
+      // Only the clicked nav's own buttons update — several buttons across
+      // both navs share the same data-target (e.g. "แหล่งกำเนิด" / "โครงการ"
+      // / "รายงาน" all point at sec-table), so syncing by target would
+      // light up more than one button at once.
+      const ownNav = btn.closest('.side-nav, .mobile-nav');
+      ownNav.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       // The "แผนที่" item opens the map as its own full-page view instead
       // of just scrolling to the map card, so it feels like a dedicated map page.
