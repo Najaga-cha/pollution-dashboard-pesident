@@ -1890,9 +1890,9 @@ function renderMap(){
   const mapEl = document.getElementById('mapview');
   if (!mapInstance){
     mapInstance = L.map('mapview', { scrollWheelZoom:true }).setView(MAP_DEFAULT_CENTER, MAP_DEFAULT_ZOOM);
-    mapTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      attribution:'&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OpenStreetMap contributors',
-      maxZoom:19, subdomains:'abcd', crossOrigin:'anonymous',
+    mapTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:'&copy; OpenStreetMap contributors',
+      maxZoom:19, subdomains:'abc', crossOrigin:'anonymous',
     }).addTo(mapInstance);
     markerCluster = L.markerClusterGroup({
       maxClusterRadius:60,
@@ -1987,9 +1987,17 @@ function setMapFullscreen(goingFullscreen){
   // until the user manually panned. Re-fitting to the data after the size
   // settles keeps the view framed correctly in both states.
   setTimeout(()=>{
-    if (!mapInstance) return;
-    mapInstance.invalidateSize();
-    resetMapView();
+    if (mapInstance){
+      mapInstance.invalidateSize();
+      resetMapView();
+    }
+    // Bug fix: toggling fullscreen reflows the dashboard grid (the donut
+    // cards next to the map change width), but Chart.js only recalculates
+    // a canvas's internal bitmap size on a window 'resize' event or an
+    // explicit .resize() call. Without this, the canvas's CSS size changes
+    // while its drawing buffer stays the old size, so the browser stretches
+    // the donut charts once the layout settles back to normal.
+    Object.values(charts).forEach(c=>{ if (c) c.resize(); });
   }, 220);
 }
 function toggleMapFullscreen(){
