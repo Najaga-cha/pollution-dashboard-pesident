@@ -362,6 +362,21 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .donut-legend .row .lab{display:flex; align-items:center; gap:6px; color:var(--ink-soft); min-width:0;}
 .donut-legend .row .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
 .donut-legend .row .val{font-weight:600; color:var(--ink); white-space:nowrap;}
+/* Collapsible legend (enforcement-status donut can have dozens of long
+   status texts). Collapsed = first few rows, one line each with ellipsis,
+   so this card ends up the same height as the other two donuts. */
+.donut-legend .row .txt{min-width:0;}
+.donut-legend.is-collapsed .row .txt{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.donut-legend.is-expanded{max-height:300px; overflow-y:auto; padding-right:4px;}
+.legend-toggle{
+  margin-top:10px; align-self:center; display:inline-flex; align-items:center; gap:5px;
+  background:var(--blue-soft); color:var(--blue); border:none; border-radius:100px;
+  padding:6px 13px; font-size:11.5px; font-weight:600; cursor:pointer;
+}
+.legend-toggle:hover{background:#d8e2fb;}
+.legend-toggle svg{width:12px; height:12px; transition:transform .15s ease;}
+.legend-toggle.open svg{transform:rotate(180deg);}
+.legend-toggle[hidden]{display:none !important;}
 
 .top5-panel .top5-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;}
 .top5-panel .top5-sub{font-size:9.5px; color:var(--ink-faint);}
@@ -1022,6 +1037,7 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
             <div class="donut-center"><canvas id="chartEnforce"></canvas><div class="donut-mid" id="enforceMid"></div></div>
             <div class="donut-total">ทั้งหมด <b id="enforceTotal">0</b> แห่ง</div>
             <div class="donut-legend" id="enforceLegend"></div>
+            <button type="button" class="legend-toggle" id="enforceLegendToggle" hidden></button>
           </div>
         </div>
 
@@ -1680,13 +1696,40 @@ function renderDonuts(){
     makeDonut('chartEnforce', ACTIVE_ENFORCE_ORDER, ACTIVE_ENFORCE_ORDER.map(k=>eBuckets[k]), ACTIVE_ENFORCE_ORDER.map(k=>ACTIVE_ENFORCE_COLORS[k]));
     document.getElementById('enforceTotal').textContent = total.toLocaleString('th-TH');
     document.getElementById('enforceMid').innerHTML = `<div class="n">${total.toLocaleString('th-TH')}</div><div class="l">ทั้งหมด</div>`;
-    document.getElementById('enforceLegend').innerHTML = ACTIVE_ENFORCE_ORDER.map(k=>legendRow(k, eBuckets[k], ACTIVE_ENFORCE_COLORS[k], total)).join('');
+    LAST_ENFORCE_ROWS = ACTIVE_ENFORCE_ORDER.map(k=>({label:k, val:eBuckets[k], color:ACTIVE_ENFORCE_COLORS[k], total}));
+    renderEnforceLegend();
+  }
+}
+
+// The enforcement legend can have many long entries, so it starts collapsed
+// to the first ENFORCE_LEGEND_COLLAPSED_N rows (the same height as the other
+// donut cards) with a button to expand/collapse the rest.
+const ENFORCE_LEGEND_COLLAPSED_N = 3;
+let LAST_ENFORCE_ROWS = [];
+let ENFORCE_LEGEND_EXPANDED = false;
+function renderEnforceLegend(){
+  const box = document.getElementById('enforceLegend');
+  const btn = document.getElementById('enforceLegendToggle');
+  if (!box) return;
+  const rows = LAST_ENFORCE_ROWS;
+  const canCollapse = rows.length > ENFORCE_LEGEND_COLLAPSED_N;
+  const expanded = canCollapse && ENFORCE_LEGEND_EXPANDED;
+  const shown = canCollapse && !expanded ? rows.slice(0, ENFORCE_LEGEND_COLLAPSED_N) : rows;
+  box.innerHTML = shown.map(r=>legendRow(r.label, r.val, r.color, r.total)).join('');
+  box.classList.toggle('is-collapsed', canCollapse && !expanded);
+  box.classList.toggle('is-expanded', expanded);
+  if (btn){
+    btn.hidden = !canCollapse;
+    btn.classList.toggle('open', expanded);
+    const hiddenCount = rows.length - ENFORCE_LEGEND_COLLAPSED_N;
+    btn.innerHTML = (expanded ? 'ย่อรายการ' : 'ดูทั้งหมด (+' + hiddenCount.toLocaleString('th-TH') + ' รายการ)')
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
   }
 }
 
 function legendRow(label, val, color, total){
   const pct = total ? Math.round(val/total*1000)/10 : 0;
-  return `<div class="row"><span class="lab"><span class="dot" style="background:${color}"></span>${escapeHtml(label)}</span><span class="val">${val.toLocaleString('th-TH')} (${pct}%)</span></div>`;
+  return `<div class="row" title="${escapeHtml(label)}"><span class="lab"><span class="dot" style="background:${color}"></span><span class="txt">${escapeHtml(label)}</span></span><span class="val">${val.toLocaleString('th-TH')} (${pct}%)</span></div>`;
 }
 
 /* ---------------- Top 5 projects ---------------- */
@@ -2056,10 +2099,38 @@ function isKtmSkpSheet(sheetName){
   const n = String(sheetName||'');
   return n.includes('กทม') && n.includes('สคพ') && !n.includes('รวมกตพ');
 }
-function mapUploadedRow(o, sheetName){
+// Finds which column holds the "ปฏิบัติตามกฎหมาย" compliance info.
+//  1) a header that is / contains "ปฏิบัติตามกฎหมาย" (ignoring spaces) wins;
+//  2) otherwise the column whose cells most often contain "ปฏิบัติ"
+//     (ปฏิบัติตามกฎหมาย / ไม่ปฏิบัติ / ปฏิบัติไม่ครบถ้วน ...).
+// Returns the real header text, or null when nothing looks like it.
+function detectComplianceKey(json){
+  if (!json || !json.length) return null;
+  const headers = Object.keys(json[0]);
+  const target = normKey('ปฏิบัติตามกฎหมาย');
+  const byHeader = headers.filter(h=>{ const n = normKey(h); return n === target || n === normKey('การปฏิบัติตามกฎหมาย') || (n.includes(target) && !n.includes('ไม่')); });
+  const counts = {};
+  headers.forEach(h=>{ counts[h] = 0; });
+  json.forEach(o=>{
+    headers.forEach(h=>{
+      const v = o[h];
+      if (v!==null && v!==undefined && String(v).replace(/\s+/g,'').includes('ปฏิบัติ')) counts[h]++;
+    });
+  });
+  // Among header matches, take the one that actually has data.
+  const hdrWithData = byHeader.filter(h=>counts[h] > 0);
+  if (hdrWithData.length) return hdrWithData.sort((a,b)=>counts[b]-counts[a])[0];
+  const best = headers.slice().sort((a,b)=>counts[b]-counts[a])[0];
+  if (best && counts[best] > 0){
+    // ignore free-text columns where "ปฏิบัติ" is only a tiny share
+    return counts[best] >= Math.max(3, json.length*0.02) ? best : null;
+  }
+  return byHeader[0] || null;
+}
+function mapUploadedRow(o, sheetName, complianceKey){
   const name = pick(o, ['ชื่อโครงการ','ชื่อแหล่งกำเนิดมลพิษ','name']);
   if (!name) return null;
-  const rawStatus = String(pick(o, ['ปฏิบัติตามกฎหมาย','การปฏิบัติตามกฎหมาย','การปฏิบัติตามกฎหมายในการระบายน้ำทิ้ง','สถานะปัจจุบัน','status'])||'').trim();
+  const rawStatus = String(pick(o, (complianceKey ? [complianceKey] : []).concat(['ปฏิบัติตามกฎหมาย','การปฏิบัติตามกฎหมาย','การปฏิบัติตามกฎหมายในการระบายน้ำทิ้ง','สถานะปัจจุบัน','status']))||'').trim();
   const sewer = pick(o, ['การเชื่อมต่อท่อเข้าระบบบำบัดน้ำเสียรวม','เชื่อมท่อ','sewer']);
   const lat = parseFloat(pick(o,['lat','ละติจูด']));
   const lng = parseFloat(pick(o,['long','ลองจิจูด','lng']));
@@ -2099,7 +2170,8 @@ function initUpload(){
         let rows = [];
         wb.SheetNames.forEach(name=>{
           const sheetJson = XLSX.utils.sheet_to_json(wb.Sheets[name], {defval:null});
-          rows = rows.concat(sheetJson.map(o=>mapUploadedRow(o, name)).filter(Boolean));
+          const ck = detectComplianceKey(sheetJson);
+          rows = rows.concat(sheetJson.map(o=>mapUploadedRow(o, name, ck)).filter(Boolean));
         });
         if (!rows.length){ alert('ไม่พบข้อมูลที่ตรงกับรูปแบบคอลัมน์ที่คาดไว้ในไฟล์นี้'); return; }
         const payload = { cols:['n','t','c','a','o','s','d','p','w','y','j','st','e'], rows };
@@ -2315,7 +2387,9 @@ async function connectGsheet(rawUrl, sheetName, opts){
     const wb = XLSX.read(csvText, { type:'string' });
     const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval:null });
     const activeSheetName = parsed.sheetName || wb.SheetNames[0];
-    const rows = json.map(o=>mapUploadedRow(o, activeSheetName)).filter(Boolean);
+    const complianceKey = detectComplianceKey(json);
+    const rows = json.map(o=>mapUploadedRow(o, activeSheetName, complianceKey)).filter(Boolean);
+    console.info('คอลัมน์ที่ใช้เป็นการปฏิบัติตามกฎหมาย:', complianceKey, '| หัวคอลัมน์ทั้งหมด:', Object.keys(json[0]||{}));
     if (!rows.length) throw new Error('ดึงข้อมูลสำเร็จ แต่ไม่พบแถวที่ตรงกับรูปแบบคอลัมน์ที่คาดไว้');
     const payload = { cols:['n','t','c','a','o','s','d','p','w','y','j','st','e'], rows };
     // No tab name was explicitly chosen -> this is the "ใช้ชีทแรกโดยอัตโนมัติ"
@@ -2324,7 +2398,7 @@ async function connectGsheet(rawUrl, sheetName, opts){
     const hideEnforceChart = usedFirstTabAuto || isKtmSkpSheet(activeSheetName);
     loadData(payload, new Date().toLocaleString('th-TH'), {dynamicEnforce: isRuamKtpSkpSheet(activeSheetName), hideEnforceChart});
     const tabNote = parsed.sheetName ? (' (ชีท "' + parsed.sheetName + '")') : ' (ชีทแรก)';
-    setGsheetMsg('เชื่อมต่อสำเร็จ' + tabNote + ' · ดึงข้อมูล ' + rows.length.toLocaleString('th-TH') + ' รายการ', 'ok');
+    setGsheetMsg('เชื่อมต่อสำเร็จ' + tabNote + ' · ดึงข้อมูล ' + rows.length.toLocaleString('th-TH') + ' รายการ · สถานะปฏิบัติตามกฎหมายอ่านจากคอลัมน์: ' + (complianceKey ? '"' + complianceKey + '"' : 'ไม่พบคอลัมน์ที่ตรงกัน'), 'ok');
     document.getElementById('gsheetLiveDot').classList.add('on');
     document.getElementById('gsheetRefreshRow').hidden = false;
     return true;
@@ -2752,6 +2826,10 @@ function init(){
     document.getElementById('viewAllProjects').addEventListener('click', ()=>{
       document.getElementById('sec-table').scrollIntoView({behavior:'smooth'});
     });
+  });
+  safeStep('enforceLegendToggle', ()=>{
+    const btn = document.getElementById('enforceLegendToggle');
+    if (btn) btn.addEventListener('click', ()=>{ ENFORCE_LEGEND_EXPANDED = !ENFORCE_LEGEND_EXPANDED; renderEnforceLegend(); });
   });
   safeStep('initMapControls', initMapControls);
   safeStep('initDetailModal', initDetailModal);
