@@ -381,6 +381,14 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .top5-panel .top5-head{display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;}
 .top5-panel .top5-sub{font-size:9.5px; color:var(--ink-faint);}
 .top5-list{display:flex; flex-direction:column; gap:16px; margin-top:8px;}
+.top5-list.scroll{max-height:520px; overflow-y:auto; padding-right:6px;}
+.top5-head{gap:8px;}
+.top5-select-wrap{display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--ink-soft); flex-shrink:0;}
+.top5-select-wrap select{
+  font-family:inherit; font-size:11.5px; font-weight:600; color:var(--ink);
+  background:#fff; border:1px solid var(--line); border-radius:8px; padding:4px 6px; cursor:pointer;
+}
+.top5-select-wrap select:focus{outline:2px solid var(--blue-soft); border-color:var(--blue);}
 .top5-item{display:flex; flex-direction:column; gap:6px;}
 .top5-item .row1{display:flex; justify-content:flex-start; gap:8px; font-size:10.5px;}
 .top5-item .rank{color:var(--blue); font-weight:700; margin-right:5px; flex-shrink:0;}
@@ -1043,7 +1051,17 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
 
         <div class="panel top5-panel">
           <div class="top5-head">
-            <div class="panel-title" style="margin:0;">โครงการที่เข้าตรวจสอบ (Top 5)</div>
+            <div class="panel-title" style="margin:0;">โครงการที่เข้าตรวจสอบ (Top <span id="top5TitleN">5</span>)</div>
+            <label class="top5-select-wrap">แสดง
+              <select id="top5Select" aria-label="เลือกจำนวนโครงการที่แสดง">
+                <option value="3">3</option>
+                <option value="5" selected>5</option>
+                <option value="10">10</option>
+                <option value="15">15</option>
+                <option value="20">20</option>
+                <option value="30">30</option>
+              </select>
+            </label>
           </div>
           <div class="top5-sub">จำนวนแหล่ง (แห่ง)</div>
           <div class="top5-list" id="top5List"></div>
@@ -1733,10 +1751,15 @@ function legendRow(label, val, color, total){
 }
 
 /* ---------------- Top 5 projects ---------------- */
+let TOP_N = 5; // how many projects the Top-N panel shows (default 5)
 function renderTop5(){
   const map = {};
   FILTERED.forEach(r=>{ const key = r.j || 'ไม่ระบุโครงการ'; map[key] = (map[key]||0)+1; });
-  const top = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const top = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,TOP_N);
+  const titleN = document.getElementById('top5TitleN');
+  if (titleN) titleN.textContent = TOP_N;
+  const listEl = document.getElementById('top5List');
+  if (listEl) listEl.classList.toggle('scroll', TOP_N > 5);
   const max = top.length ? top[0][1] : 1;
   document.getElementById('top5List').innerHTML = top.map(([name,count],i)=>`
     <div class="top5-item">
@@ -2580,7 +2603,10 @@ function renderPrintSummary(){
   // Top 5 projects — same ranking logic as the live sidebar panel.
   const map = {};
   FILTERED.forEach(r=>{ const key = r.j || 'ไม่ระบุโครงการ'; map[key] = (map[key]||0)+1; });
-  const top = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const printTopN = Math.min(TOP_N, 10); // cap so the one-page summary still fits
+  const top = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,printTopN);
+  const prTitle = document.querySelector('.pr-top5 h3');
+  if (prTitle) prTitle.textContent = 'โครงการที่เข้าข่ายตรวจสอบ (Top ' + printTopN + ')';
   const max = top.length ? top[0][1] : 1;
   document.getElementById('prTop5List').innerHTML = top.map(([name,count],i)=>`
     <div class="pr-top5-item">
@@ -2830,6 +2856,10 @@ function init(){
   safeStep('enforceLegendToggle', ()=>{
     const btn = document.getElementById('enforceLegendToggle');
     if (btn) btn.addEventListener('click', ()=>{ ENFORCE_LEGEND_EXPANDED = !ENFORCE_LEGEND_EXPANDED; renderEnforceLegend(); });
+  });
+  safeStep('top5Select', ()=>{
+    const sel = document.getElementById('top5Select');
+    if (sel) sel.addEventListener('change', ()=>{ TOP_N = parseInt(sel.value,10) || 5; renderTop5(); });
   });
   safeStep('initMapControls', initMapControls);
   safeStep('initDetailModal', initDetailModal);
