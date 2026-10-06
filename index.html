@@ -1276,16 +1276,16 @@ function normText(s){
 function complyBucket(row){
   const st = normText(row.st);
   // Exact matches first (fast path for clean data)...
-  if (st === 'ปฏิบัติถูกต้อง' || st === 'ปฏิบัติตามกฎหมาย') return 'ok';
+  if (st === 'ปฏิบัติถูกต้อง' || st === 'ปฏิบัติตามกฎหมาย' || st === 'ปฏิบัติ' || st === 'ถูกต้อง' || st === 'ผ่าน' || st === 'ใช่') return 'ok';
   if (st === 'ปฏิบัติไม่ครบถ้วน') return 'partial';
-  if (st === 'ไม่ปฏิบัติ' || st === 'ไม่ปฏิบัติตามกฎหมาย') return 'bad';
+  if (st === 'ไม่ปฏิบัติ' || st === 'ไม่ปฏิบัติตามกฎหมาย' || st === 'ไม่ผ่าน' || st === 'ไม่ใช่') return 'bad';
   // ...then keyword fallback, so real-world text like "ปฏิบัติไม่ครบถ้วนตามกฎหมาย"
   // or "ผู้ประกอบการไม่ปฏิบัติตามมาตรฐาน" still lands in the right bucket
   // instead of silently collapsing into ok/bad via the boolean field below.
   if (st){
     if (st.includes('ไม่ครบ')) return 'partial';
     if (st.includes('ไม่ปฏิบัติ') || st.includes('ไม่ผ่าน') || st.includes('ฝ่าฝืน')) return 'bad';
-    if (st.includes('ถูกต้อง') || (st.includes('ปฏิบัติ') && st.includes('ตามกฎหมาย'))) return 'ok';
+    if (st.includes('ถูกต้อง') || (st.includes('ปฏิบัติ') && st.includes('ตามกฎหมาย')) || st.startsWith('ปฏิบัติ')) return 'ok';
   }
   // fallback to boolean compliance field if no detailed status text
   return row.c ? 'ok' : 'bad';
@@ -2024,7 +2024,21 @@ function initMapControls(){
 }
 
 /* ---------------- Upload mapping (shared by file-upload + Google Sheet) ---------------- */
-function pick(o, keys){ for(const k of keys){ if(o[k]!==undefined && o[k]!==null && o[k]!=='') return o[k]; } return null; }
+// Header-tolerant lookup: tries the exact column name first, then a
+// normalized match (ignores spaces, line breaks and zero-width characters),
+// so a header like "ปฏิบัติตามกฎหมาย " or "ปฏิบัติ ตามกฎหมาย" still matches.
+function normKey(s){ return String(s).replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/\s+/g,'').toLowerCase(); }
+const _normMapCache = new WeakMap();
+function pick(o, keys){
+  let nm = _normMapCache.get(o);
+  if (!nm){ nm = {}; Object.keys(o).forEach(k=>{ nm[normKey(k)] = k; }); _normMapCache.set(o, nm); }
+  for(const k of keys){
+    let v = o[k];
+    if (v===undefined || v===null || v===''){ const real = nm[normKey(k)]; v = real!==undefined ? o[real] : undefined; }
+    if (v!==undefined && v!==null && v!=='') return v;
+  }
+  return null;
+}
 // The "รวมกตพ.+สคพ.ทั้งหมด" sheet doesn't have its own
 // "สถานะการบังคับใช้กฎหมาย" column like the other sheets do — it only has
 // "สถานะปัจจุบัน". Without this, every row's enforce field comes back empty
@@ -2045,7 +2059,7 @@ function isKtmSkpSheet(sheetName){
 function mapUploadedRow(o, sheetName){
   const name = pick(o, ['ชื่อโครงการ','ชื่อแหล่งกำเนิดมลพิษ','name']);
   if (!name) return null;
-  const rawStatus = String(pick(o, ['สถานะปัจจุบัน','การปฏิบัติตามกฎหมายในการระบายน้ำทิ้ง','status'])||'').trim();
+  const rawStatus = String(pick(o, ['ปฏิบัติตามกฎหมาย','การปฏิบัติตามกฎหมาย','การปฏิบัติตามกฎหมายในการระบายน้ำทิ้ง','สถานะปัจจุบัน','status'])||'').trim();
   const sewer = pick(o, ['การเชื่อมต่อท่อเข้าระบบบำบัดน้ำเสียรวม','เชื่อมท่อ','sewer']);
   const lat = parseFloat(pick(o,['lat','ละติจูด']));
   const lng = parseFloat(pick(o,['long','ลองจิจูด','lng']));
