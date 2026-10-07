@@ -366,6 +366,14 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .donut-legend{width:100%; margin-top:18px; display:flex; flex-direction:column; gap:4px;}
 .donut-legend .row{display:flex; align-items:flex-start; justify-content:space-between; font-size:13px; line-height:1.4; gap:10px; padding:7px 9px; border-radius:8px;}
 .donut-legend .row:hover{background:var(--gray-soft);}
+/* Clickable donut segments / legend rows -> open the matching data list */
+.donut-legend .row.clickable{cursor:pointer; transition:background .12s ease;}
+.donut-legend .row.clickable:hover{background:var(--blue-soft);}
+.donut-legend .row.clickable:focus-visible{outline:2px solid var(--blue); outline-offset:-2px;}
+.donut-legend .row.clickable .val::after{content:'›'; margin-left:6px; color:var(--ink-faint); font-weight:700;}
+.donut-legend .row.is-empty{cursor:default; opacity:.6;}
+.donut-legend .row.is-empty .val::after{content:'';}
+.donut-hint{font-size:11px; color:var(--ink-faint); text-align:center; margin-top:6px;}
 .donut-legend .row .lab{display:flex; align-items:flex-start; gap:8px; color:var(--ink-soft); min-width:0;}
 .donut-legend .row .dot{width:11px; height:11px; border-radius:50%; flex-shrink:0; margin-top:4px;}
 .donut-legend .row .val{font-weight:600; color:var(--ink); white-space:nowrap;}
@@ -1054,6 +1062,7 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
             <div class="panel-title">เชื่อมท่อ / ไม่เชื่อมท่อ</div>
             <div class="donut-center"><canvas id="chartSewer"></canvas><div class="donut-mid" id="sewerMid"></div></div>
             <div class="donut-total">ทั้งหมด <b id="sewerTotal">0</b> แห่ง</div>
+            <div class="donut-hint">คลิกที่กราฟหรือรายการเพื่อดูข้อมูล</div>
             <div class="donut-legend" id="sewerLegend"></div>
           </div>
 
@@ -1679,7 +1688,7 @@ function renderKPIs(){
 /* ---------------- Donuts ---------------- */
 function destroyChart(key){ if(charts[key]){ charts[key].destroy(); delete charts[key]; } }
 
-function makeDonut(canvasId, labels, data, colors){
+function makeDonut(canvasId, labels, data, colors, onSegmentClick){
   if (typeof Chart === 'undefined'){
     // Chart.js failed to load from every CDN attempted — degrade gracefully
     // instead of throwing, so the rest of the dashboard (incl. Google Sheet
@@ -1694,9 +1703,34 @@ function makeDonut(canvasId, labels, data, colors){
     options:{
       responsive:true, maintainAspectRatio:true, cutout:'66%',
       plugins:{ legend:{display:false}, tooltip:{enabled:true} },
+      // Click a segment -> open the list of sources in that segment.
+      onClick:(evt, elements)=>{
+        if (!onSegmentClick || !elements.length) return;
+        onSegmentClick(elements[0].index);
+      },
+      onHover:(evt, elements)=>{
+        const cv = evt.native && evt.native.target;
+        if (cv && onSegmentClick) cv.style.cursor = elements.length ? 'pointer' : 'default';
+      },
     }
   });
 }
+
+/* ---- Donut drill-down: segment / legend row -> data modal ---- */
+const DONUT_TITLES = { chartSewer:'เชื่อมท่อ / ไม่เชื่อมท่อ', chartCompliance:'สถานะการปฏิบัติตามกฎหมาย', chartEnforce:'สถานะการบังคับใช้กฎหมาย' };
+function donutRowsFor(chartId, key){
+  if (chartId === 'chartSewer')      return FILTERED.filter(r=> key === 'yes' ? !!r.w : !r.w);
+  if (chartId === 'chartCompliance') return FILTERED.filter(r=> complyBucket(r) === key);
+  if (chartId === 'chartEnforce')    return FILTERED.filter(r=> enforceBucket(r) === key);
+  return [];
+}
+function openDonutModal(chartId, key, label){
+  const rows = donutRowsFor(chartId, key);
+  if (!rows.length) return;
+  openKpiTableModal('donut', (DONUT_TITLES[chartId]||'') + ' : ' + label, rows);
+}
+// Keys per chart, in the same order as the donut segments.
+const SEWER_KEYS = ['yes','no'];
 
 function renderDonuts(){
   const total = FILTERED.length;
@@ -1713,29 +1747,33 @@ function renderDonuts(){
 
   // เชื่อมท่อ / ไม่เชื่อมท่อ
   const sewerYes = FILTERED.filter(r=>r.w).length, sewerNo = total - sewerYes;
-  makeDonut('chartSewer', ['เชื่อมท่อ','ไม่เชื่อมท่อ'], [sewerYes, sewerNo], ['#1AA36A','#D8DEE9']);
+  const SEWER_LABELS = ['เชื่อมท่อ','ไม่เชื่อมท่อ'];
+  makeDonut('chartSewer', SEWER_LABELS, [sewerYes, sewerNo], ['#1AA36A','#D8DEE9'],
+    i=> openDonutModal('chartSewer', SEWER_KEYS[i], SEWER_LABELS[i]));
   document.getElementById('sewerTotal').textContent = total.toLocaleString('th-TH');
   document.getElementById('sewerMid').innerHTML = `<div class="n">${total.toLocaleString('th-TH')}</div><div class="l">ทั้งหมด</div>`;
   document.getElementById('sewerLegend').innerHTML = [
-    ['เชื่อมท่อ', sewerYes, '#1AA36A'],
-    ['ไม่เชื่อมท่อ', sewerNo, '#D8DEE9'],
-  ].map(([lab,val,col])=>legendRow(lab,val,col,total)).join('');
+    ['เชื่อมท่อ', sewerYes, '#1AA36A', 'yes'],
+    ['ไม่เชื่อมท่อ', sewerNo, '#D8DEE9', 'no'],
+  ].map(([lab,val,col,key])=>legendRow(lab,val,col,total,'chartSewer',key)).join('');
 
   // compliance — 5 states
   const buckets = emptyComplyBuckets();
   FILTERED.forEach(r=> buckets[complyBucket(r)]++ );
-  makeDonut('chartCompliance', COMPLY_ORDER.map(k=>COMPLY_LABEL[k]), COMPLY_ORDER.map(k=>buckets[k]), COMPLY_ORDER.map(k=>COMPLY_COLORS[k]));
+  makeDonut('chartCompliance', COMPLY_ORDER.map(k=>COMPLY_LABEL[k]), COMPLY_ORDER.map(k=>buckets[k]), COMPLY_ORDER.map(k=>COMPLY_COLORS[k]),
+    i=> openDonutModal('chartCompliance', COMPLY_ORDER[i], COMPLY_LABEL[COMPLY_ORDER[i]]));
   document.getElementById('complianceTotal').textContent = total.toLocaleString('th-TH');
   document.getElementById('complianceMid').innerHTML = `<div class="n">${total.toLocaleString('th-TH')}</div><div class="l">ทั้งหมด</div>`;
   document.getElementById('complianceLegend').innerHTML = COMPLY_ORDER
-    .map(k=>legendRow(COMPLY_LABEL[k], buckets[k], COMPLY_COLORS[k], total)).join('');
+    .map(k=>legendRow(COMPLY_LABEL[k], buckets[k], COMPLY_COLORS[k], total, 'chartCompliance', k)).join('');
 
   // enforcement status — ACTIVE_ENFORCE_ORDER/COLORS are the fixed 8 statuses
   // (plus "อื่นๆ" only when some row doesn't match any of them).
   if (!HIDE_ENFORCE_CHART){
     const eBuckets = {}; ACTIVE_ENFORCE_ORDER.forEach(k=>eBuckets[k]=0);
     FILTERED.forEach(r=> eBuckets[enforceBucket(r)]++ );
-    makeDonut('chartEnforce', ACTIVE_ENFORCE_ORDER, ACTIVE_ENFORCE_ORDER.map(k=>eBuckets[k]), ACTIVE_ENFORCE_ORDER.map(k=>ACTIVE_ENFORCE_COLORS[k]));
+    makeDonut('chartEnforce', ACTIVE_ENFORCE_ORDER, ACTIVE_ENFORCE_ORDER.map(k=>eBuckets[k]), ACTIVE_ENFORCE_ORDER.map(k=>ACTIVE_ENFORCE_COLORS[k]),
+      i=> openDonutModal('chartEnforce', ACTIVE_ENFORCE_ORDER[i], ACTIVE_ENFORCE_ORDER[i]));
     document.getElementById('enforceTotal').textContent = total.toLocaleString('th-TH');
     document.getElementById('enforceMid').innerHTML = `<div class="n">${total.toLocaleString('th-TH')}</div><div class="l">ทั้งหมด</div>`;
     LAST_ENFORCE_ROWS = ACTIVE_ENFORCE_ORDER.map(k=>({label:k, val:eBuckets[k], color:ACTIVE_ENFORCE_COLORS[k], total}))
@@ -1758,7 +1796,7 @@ function renderEnforceLegend(){
   const canCollapse = rows.length > ENFORCE_LEGEND_COLLAPSED_N;
   const expanded = canCollapse && ENFORCE_LEGEND_EXPANDED;
   const shown = canCollapse && !expanded ? rows.slice(0, ENFORCE_LEGEND_COLLAPSED_N) : rows;
-  box.innerHTML = shown.map(r=>legendRow(r.label, r.val, r.color, r.total)).join('');
+  box.innerHTML = shown.map(r=>legendRow(r.label, r.val, r.color, r.total, 'chartEnforce', r.label)).join('');
   box.classList.toggle('is-collapsed', canCollapse && !expanded);
   box.classList.toggle('is-expanded', expanded);
   if (btn){
@@ -1770,9 +1808,13 @@ function renderEnforceLegend(){
   }
 }
 
-function legendRow(label, val, color, total){
+function legendRow(label, val, color, total, chartId, key){
   const pct = total ? Math.round(val/total*1000)/10 : 0;
-  return `<div class="row" title="${escapeHtml(label)}"><span class="lab"><span class="dot" style="background:${color}"></span><span class="txt">${escapeHtml(label)}</span></span><span class="val">${val.toLocaleString('th-TH')} (${pct}%)</span></div>`;
+  const clickable = !!chartId && val > 0;
+  const attrs = clickable
+    ? ` role="button" tabindex="0" data-chart="${chartId}" data-key="${escapeHtml(String(key))}" data-label="${escapeHtml(label)}"`
+    : '';
+  return `<div class="row${clickable ? ' clickable' : (chartId ? ' is-empty' : '')}"${attrs} title="${escapeHtml(label)}"><span class="lab"><span class="dot" style="background:${color}"></span><span class="txt">${escapeHtml(label)}</span></span><span class="val">${val.toLocaleString('th-TH')} (${pct}%)</span></div>`;
 }
 
 /* ---------------- Top 5 projects ---------------- */
@@ -1881,8 +1923,10 @@ function kpiRowsFor(kind){
   if (kind === 'compliant') return FILTERED.filter(r=>complyBucket(r)==='ok');
   return FILTERED; // 'all'
 }
-function openKpiTableModal(kind, label){
-  const rows = kpiRowsFor(kind);
+let KPI_MODAL_ROWS = []; // rows currently listed in the modal (for the per-row detail button)
+function openKpiTableModal(kind, label, rowsOverride){
+  const rows = rowsOverride || kpiRowsFor(kind);
+  KPI_MODAL_ROWS = rows;
   document.getElementById('kpiTableTitle').textContent = label || 'รายละเอียด';
   document.getElementById('kpiTableCount').textContent = rows.length.toLocaleString('th-TH');
   document.getElementById('kpiTableBody').innerHTML = rows.map((r,i)=>{
@@ -1920,14 +1964,31 @@ function initKpiTableModal(){
     openKpiTableModal(btn.dataset.kpi, btn.dataset.label);
   });
 
+  // Click (or Enter/Space) on a legend row under any donut -> same list as
+  // clicking the matching ring segment. Delegated on the stable legend boxes
+  // because the legends are re-rendered on every filter change.
+  ['sewerLegend','complianceLegend','enforceLegend'].forEach(id=>{
+    const box = document.getElementById(id);
+    if (!box) return;
+    const open = e=>{
+      const row = e.target.closest('.row.clickable');
+      if (!row) return false;
+      openDonutModal(row.dataset.chart, row.dataset.key, row.dataset.label);
+      return true;
+    };
+    box.addEventListener('click', open);
+    box.addEventListener('keydown', e=>{
+      if (e.key === 'Enter' || e.key === ' '){ if (open(e)) e.preventDefault(); }
+    });
+  });
+
   // Drill-down from a row inside the KPI table into the existing single-row
   // detail modal (reuses openDetailModal, which lives on top of this modal).
   document.getElementById('kpiTableBody').addEventListener('click', e=>{
     const btn = e.target.closest('.kpi-row-eye');
     if (!btn) return;
     const idx = parseInt(btn.dataset.kpirowIdx, 10);
-    const rows = kpiRowsFor(btn.dataset.kpirowKind);
-    const row = rows[idx];
+    const row = KPI_MODAL_ROWS[idx];
     if (row) openDetailModal(row);
   });
 }
@@ -2179,6 +2240,32 @@ function detectComplianceKey(json){
   }
   return byHeader[0] || null;
 }
+// Reads a year out of a sheet cell without trusting parseInt().
+// parseInt() silently returns the WRONG number for common sheet formats:
+//   "2,566"      -> 2     (thousands separator added by the CSV export)
+//   "31/12/2566" -> 31    (a date cell: gives the day, not the year)
+//   "2566.0"     -> 2566 ok, but "ปี 2566" -> NaN
+// So: Date objects use their year; otherwise strip commas/spaces, convert
+// Thai digits, and pull out the 4-digit year(s) (24xx/25xx Buddhist or
+// 19xx/20xx Gregorian). Several different years (e.g. "2565-2566") are kept
+// as text instead of being cut down to the first one. Returns null if empty.
+function parseYearCell(raw){
+  if (raw==null || raw==='') return null;
+  if (raw instanceof Date) return isNaN(raw) ? null : raw.getFullYear();
+  if (typeof raw === 'number'){
+    if (raw >= 1900 && raw <= 2700) return Math.round(raw);
+    return null;
+  }
+  let t = String(raw).replace(/[\u200B-\u200D\uFEFF]/g,'').trim();
+  if (!t || t === '-' || t === '–') return null;
+  t = t.replace(/[๐-๙]/g, d=> String('๐๑๒๓๔๕๖๗๘๙'.indexOf(d)));   // Thai digits -> 0-9
+  const compact = t.replace(/,/g,'');                                  // "2,566" -> "2566"
+  if (/^\d{4}(\.0+)?$/.test(compact)) return parseInt(compact,10);
+  const years = (compact.match(/(?<!\d)(?:19|20|24|25|26)\d{2}(?!\d)/g) || []).map(x=>parseInt(x,10));
+  const uniq = Array.from(new Set(years));
+  if (uniq.length === 1) return uniq[0];
+  return uniq.length ? t : null; // several years -> keep original text
+}
 function mapUploadedRow(o, sheetName, complianceKey){
   const name = pick(o, ['ชื่อโครงการ','ชื่อแหล่งกำเนิดมลพิษ','name']);
   if (!name) return null;
@@ -2191,8 +2278,7 @@ function mapUploadedRow(o, sheetName, complianceKey){
     ? ['สถานะการบังคับใช้กฎหมาย','สถานะปัจจุบัน','enforcement']
     : ['สถานะการบังคับใช้กฎหมาย','enforcement'];
   const endYearRaw = pick(o, ['ปีที่ยุติ','ปีที่ยุติเรื่อง','ปีที่ยุติ(พ.ศ.)','ปีที่ยุติ (พ.ศ.)','end_year']);
-  const endYearNum = endYearRaw==null ? NaN : parseInt(endYearRaw,10);
-  const endYear = endYearRaw==null ? null : (isNaN(endYearNum) ? String(endYearRaw).trim() : endYearNum);
+  const endYear = parseYearCell(endYearRaw);
   const enforce = String(pick(o, enforceKeys)||'').trim();
   const compliantBool = rawStatus === 'ปฏิบัติถูกต้อง' || rawStatus === 'ปฏิบัติตามกฎหมาย';
   return [
@@ -2205,7 +2291,7 @@ function mapUploadedRow(o, sheetName, complianceKey){
     String(pick(o,['เขต/อำเภอ','เขต','district'])||'').trim(),
     String(pick(o,['จังหวัด','province'])||'').trim(),
     String(sewer||'').trim().startsWith('เชื่อมต่อ') || String(sewer||'').trim()==='เชื่อมท่อ',
-    year ? parseInt(year,10) : null,
+    (function(v){ const n = parseYearCell(v); return typeof n === 'number' ? n : null; })(year),
     String(pick(o,['โครงการ','โครงการที่เข้าตรวจสอบ','project'])||'').trim(),
     rawStatus,
     enforce,
