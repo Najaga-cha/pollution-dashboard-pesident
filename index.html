@@ -336,9 +336,9 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .donut-sub{flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; padding:0 20px;}
 .donut-sub:not(:first-child){border-left:1px solid var(--line);}
 .donut-sub .panel-title{
-  font-size:14.5px; text-align:center; min-height:2.7em; display:flex; align-items:center; justify-content:center;
+  font-size:13.5px; text-align:center; min-height:2.7em; display:flex; align-items:center; justify-content:center;
 }
-.donut-sub canvas{width:100% !important; max-width:240px; max-height:240px;}
+.donut-sub canvas{width:100% !important; max-width:190px; max-height:190px;}
 /* .donut-sub sets display:flex unconditionally above, which (same CSS
    specificity as the browser's built-in [hidden]{display:none}, but author
    styles win over user-agent styles regardless of order) silently canceled
@@ -359,8 +359,8 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .donut-mid{
   position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; pointer-events:none;
 }
-.donut-mid .n{font-family:var(--font-mono); font-size:34px; font-weight:700; color:var(--ink); line-height:1.1;}
-.donut-mid .l{font-size:12.5px; color:var(--ink-faint); margin-top:2px;}
+.donut-mid .n{font-family:var(--font-mono); font-size:28px; font-weight:700; color:var(--ink); line-height:1.1;}
+.donut-mid .l{font-size:11.5px; color:var(--ink-faint); margin-top:2px;}
 .donut-total{font-size:12.5px; color:var(--ink-faint); text-align:center; margin-top:14px;}
 .donut-total b{color:var(--ink); font-weight:700;}
 .donut-legend{width:100%; margin-top:18px; display:flex; flex-direction:column; gap:4px;}
@@ -1692,7 +1692,7 @@ function makeDonut(canvasId, labels, data, colors){
     type:'doughnut',
     data:{ labels, datasets:[{ data, backgroundColor:colors, borderWidth:2, borderColor:'#fff' }] },
     options:{
-      responsive:true, maintainAspectRatio:true, cutout:'62%',
+      responsive:true, maintainAspectRatio:true, cutout:'66%',
       plugins:{ legend:{display:false}, tooltip:{enabled:true} },
     }
   });
