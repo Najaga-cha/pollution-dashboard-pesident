@@ -2266,6 +2266,22 @@ function parseYearCell(raw){
   if (uniq.length === 1) return uniq[0];
   return uniq.length ? t : null; // several years -> keep original text
 }
+// "ปีที่ยุติ" is shown exactly as it appears in the sheet's "ปีที่ยุติ"
+// column — no conversion. The column is found by its header (exact match
+// first, then any header containing "ปีที่ยุติ"), ignoring spaces/zero-width
+// characters. Empty cells -> null (shown as "-").
+function readEndYearCell(o){
+  const keys = Object.keys(o);
+  const target = normKey('ปีที่ยุติ');
+  const key = keys.find(k=> normKey(k) === target) || keys.find(k=> normKey(k).includes(target));
+  if (!key) return null;
+  let v = o[key];
+  if (v==null) return null;
+  if (v instanceof Date) return isNaN(v) ? null : v.getFullYear();
+  if (typeof v === 'number') return Number.isInteger(v) ? v : String(v);
+  v = String(v).replace(/[\u200B-\u200D\uFEFF]/g,'').trim();
+  return v === '' ? null : v;
+}
 function mapUploadedRow(o, sheetName, complianceKey){
   const name = pick(o, ['ชื่อโครงการ','ชื่อแหล่งกำเนิดมลพิษ','name']);
   if (!name) return null;
@@ -2277,8 +2293,7 @@ function mapUploadedRow(o, sheetName, complianceKey){
   const enforceKeys = isRuamKtpSkpSheet(sheetName)
     ? ['สถานะการบังคับใช้กฎหมาย','สถานะปัจจุบัน','enforcement']
     : ['สถานะการบังคับใช้กฎหมาย','enforcement'];
-  const endYearRaw = pick(o, ['ปีที่ยุติ','ปีที่ยุติเรื่อง','ปีที่ยุติ(พ.ศ.)','ปีที่ยุติ (พ.ศ.)','end_year']);
-  const endYear = parseYearCell(endYearRaw);
+  const endYear = readEndYearCell(o);
   const enforce = String(pick(o, enforceKeys)||'').trim();
   const compliantBool = rawStatus === 'ปฏิบัติถูกต้อง' || rawStatus === 'ปฏิบัติตามกฎหมาย';
   return [
