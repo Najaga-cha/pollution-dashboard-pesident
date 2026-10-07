@@ -171,11 +171,10 @@ main.content{flex:1; min-width:0; padding:20px 24px 60px;}
   background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
   box-shadow:var(--shadow); padding:16px 20px 18px; margin-bottom:18px;
 }
-.filter-row{display:grid; grid-template-columns:1.4fr repeat(7,minmax(0,1fr)); gap:14px; margin-bottom:14px;}
-.filter-row2{display:grid; grid-template-columns:1fr 1fr auto auto; gap:14px; align-items:end;}
-@media (max-width:1400px){ .filter-row{grid-template-columns:repeat(4,minmax(0,1fr));} .filter-row .field-group::after{display:none;} }
+.filter-row{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-bottom:14px;}
+.filter-row2{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,2fr) auto; gap:14px; align-items:end;}
 .field-group{display:flex; flex-direction:column; gap:6px; min-width:0;}
-.field-label{font-size:11.5px; color:var(--ink-soft); font-weight:500;}
+.field-label{font-size:12px; color:var(--ink-soft); font-weight:500; white-space:nowrap;}
 .field-input, select.field-input{
   font-family:var(--font-body); font-size:13px; color:var(--ink);
   background:var(--bg); border:1px solid var(--line); border-radius:9px;
@@ -230,28 +229,31 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .ms-trigger{
   display:block; width:100%; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
+.ms-trigger .ms-count{display:inline-block; min-width:20px; padding:0 6px; margin-left:8px; border-radius:100px; background:var(--blue); color:#fff; font-size:11px; font-weight:600; text-align:center; line-height:18px;}
 .ms-trigger.has-value{color:var(--blue); font-weight:600; background-color:var(--blue-soft); border-color:var(--blue-soft);}
 .ms-select.open .ms-trigger{border-color:var(--blue); box-shadow:0 0 0 3px var(--blue-soft);}
 .ms-panel{
-  position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:60;
+  position:absolute; top:calc(100% + 6px); left:0; width:max(100%,360px); max-width:min(480px,92vw); z-index:60;
   background:#fff; border:1px solid var(--line); border-radius:10px;
   box-shadow:0 14px 30px -12px rgba(8,18,38,.28); padding:8px;
 }
 .ms-panel[hidden]{display:none;}
+.ms-panel.flip{left:auto; right:0;}
 .ms-panel-search{margin-bottom:6px;}
 .ms-panel-search input{
   width:100%; border:1px solid var(--line); border-radius:7px; padding:7px 9px;
   font-size:12.5px; font-family:inherit; color:var(--ink);
 }
 .ms-panel-search input:focus{outline:none; border-color:var(--blue);}
-.ms-options{max-height:216px; overflow-y:auto; display:flex; flex-direction:column; gap:1px;}
+.ms-options{max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:1px;}
 .ms-option{
-  display:flex; align-items:center; gap:9px; padding:7px 8px; border-radius:7px; cursor:pointer;
-  font-size:12.8px; color:var(--ink);
+  display:flex; align-items:flex-start; gap:10px; padding:8px 9px; border-radius:7px; cursor:pointer;
+  font-size:13px; line-height:1.45; color:var(--ink);
 }
 .ms-option:hover{background:var(--gray-soft);}
-.ms-option input[type="checkbox"]{width:15px; height:15px; accent-color:var(--blue); flex-shrink:0; cursor:pointer; margin:0;}
-.ms-option span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.ms-option input[type="checkbox"]{width:16px; height:16px; accent-color:var(--blue); flex-shrink:0; cursor:pointer; margin:2px 0 0;}
+.ms-option:has(input:checked){background:var(--blue-soft);}
+.ms-option span{white-space:normal; overflow-wrap:anywhere;}
 .ms-empty{padding:12px 6px; text-align:center; color:var(--ink-faint); font-size:12.5px;}
 .ms-panel-actions{display:flex; justify-content:space-between; gap:8px; padding-top:6px; margin-top:6px; border-top:1px solid var(--line);}
 .ms-panel-actions button{
@@ -999,7 +1001,7 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
             <span class="field-label">โครงการที่เข้าตรวจสอบ</span>
             <div class="ms-select" id="fProject"></div>
           </div>
-          <div class="filter-actions" style="grid-column:span 2;">
+          <div class="filter-actions">
             <button class="btn-clear" id="resetFilters" type="button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 1 3 6.7"/><path d="M3 7v6h6"/></svg>
               ล้างค่า
@@ -1409,7 +1411,9 @@ function createMultiSelect(id, placeholder){
     closeAllMultiSelects();
     if (willOpen){
       panel.hidden = false;
+      panel.classList.remove('flip');
       root.classList.add('open');
+      if (panel.getBoundingClientRect().right > window.innerWidth - 8) panel.classList.add('flip');
       searchInput.value = '';
       renderMsOptions(id);
       searchInput.focus();
@@ -1460,6 +1464,7 @@ function updateMsTrigger(id){
   const n = msState[id].size;
   if (!n){
     trigger.classList.remove('has-value');
+    trigger.removeAttribute('title');
     textEl.textContent = msPlaceholder[id];
   } else {
     trigger.classList.add('has-value');
@@ -1467,8 +1472,9 @@ function updateMsTrigger(id){
       const v = Array.from(msState[id])[0];
       const opt = msOptions[id].find(o=>o.value===v);
       textEl.textContent = opt ? opt.label : v;
+      trigger.title = opt ? opt.label : v;
     } else {
-      textEl.textContent = `เลือกแล้ว ${n} รายการ`;
+      textEl.innerHTML = `เลือกแล้ว<span class="ms-count">${n}</span>`;
     }
   }
 }
@@ -1638,11 +1644,11 @@ function renderKPIs(){
 
   // Order per spec: 1 = all sources, 2 = compliance, 3 = pipe connection
   const cards = [
-    { kind:'all', icon:'<path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1"/><path d="M12 18h1"/><path d="M7 18h1"/>', bg:'var(--blue-soft)', color:'var(--blue)',
+    { kind:'all', icon:'<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>', bg:'var(--blue-soft)', color:'var(--blue)',
       label:'จำนวนแหล่งกำเนิดมลพิษที่ตรวจสอบทั้งหมด', value: total.toLocaleString('th-TH'), unit:'แห่ง', pctText:'' },
-    { kind:'compliant', icon:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>', bg:'var(--purple-soft)', color:'var(--purple)',
+    { kind:'compliant', icon:'<path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z"/><path d="M7 21h10"/><path d="M12 3v18"/><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>', bg:'var(--purple-soft)', color:'var(--purple)',
       label:'การปฏิบัติตามกฎหมาย/ระบายน้ำทิ้งเป็นไปตามมาตรฐานที่กฎหมายกำหนด', value: compliantOk.toLocaleString('th-TH'), unit:'แห่ง', pctText:'('+compliantPct.toLocaleString('th-TH')+'%)' },
-    { kind:'sewer', icon:'<path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"/><path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"/>', bg:'var(--green-soft)', color:'var(--green)',
+    { kind:'sewer', icon:'<rect x="2" y="5" width="3" height="4" rx=".6"/><rect x="19" y="15" width="3" height="4" rx=".6"/><path d="M5 7h6a2 2 0 0 1 2 2v6a2 2 0 0 0 2 2h4"/>', bg:'var(--green-soft)', color:'var(--green)',
       label:'การเชื่อมต่อท่อเข้าระบบบำบัดน้ำเสียรวม', value: sewerYes.toLocaleString('th-TH'), unit:'แห่ง', pctText:'('+sewerPct.toLocaleString('th-TH')+'%)' },
   ];
   document.getElementById('kpiRow').innerHTML = cards.map(c=>`
@@ -2536,7 +2542,8 @@ function buildFilterSummaryText(){
     const trigger = root.querySelector('.ms-trigger');
     const textEl = root.querySelector('.ms-trigger-text');
     if (trigger && trigger.classList.contains('has-value') && textEl){
-      parts.push(msLabel[id] + ': ' + textEl.textContent.trim());
+      const n = (msState[id] && msState[id].size) || 0;
+      parts.push(msLabel[id] + ': ' + (n > 1 ? 'เลือกแล้ว ' + n + ' รายการ' : textEl.textContent.trim()));
     }
   });
   return 'ตัวกรอง: ' + (parts.length ? parts.join(' · ') : 'ไม่ได้กรองข้อมูล (แสดงทั้งหมด)');
