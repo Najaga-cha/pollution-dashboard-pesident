@@ -366,6 +366,8 @@ input.field-input{background-image:none; cursor:text; padding:9px 12px;}
 .donut-legend{width:100%; margin-top:18px; display:flex; flex-direction:column; gap:4px;}
 .donut-legend .row{display:flex; align-items:flex-start; justify-content:space-between; font-size:13px; line-height:1.4; gap:10px; padding:7px 9px; border-radius:8px;}
 .donut-legend .row:hover{background:var(--gray-soft);}
+/* วันที่/ปีที่ยุติ: keep the whole value on one line */
+.cell-date{white-space:nowrap !important; word-break:keep-all;}
 /* Clickable donut segments / legend rows -> open the matching data list */
 .donut-legend .row.clickable{cursor:pointer; transition:background .12s ease;}
 .donut-legend .row.clickable:hover{background:var(--blue-soft);}
@@ -843,7 +845,7 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
         <th>การเชื่อมท่อ</th>
         <th>สถานะการปฏิบัติตามกฎหมาย</th>
         <th>สถานะการบังคับใช้กฎหมาย</th>
-        <th>ปีที่ยุติ</th>
+        <th class="cell-date">ปีที่ยุติ</th>
         <th>ปีงบประมาณที่เริ่มตรวจ</th>
         <th>โครงการที่เข้าตรวจสอบ</th>
       </tr>
@@ -1135,7 +1137,7 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
                   <th>การเชื่อมท่อ</th>
                   <th>สถานะการปฏิบัติตามกฎหมาย</th>
                   <th>สถานะการบังคับใช้กฎหมาย</th>
-                  <th>ปีที่ยุติ</th>
+                  <th class="cell-date">ปีที่ยุติ</th>
                   <th>ปีงบประมาณที่เริ่มตรวจ</th>
                   <th>โครงการที่เข้าตรวจสอบ</th>
                   <th>ดูรายละเอียด</th>
@@ -1219,7 +1221,7 @@ table.pr-table tbody tr:last-child td{ border-bottom:none; }
             <th>การเชื่อมท่อ</th>
             <th>สถานะการปฏิบัติตามกฎหมาย</th>
             <th>สถานะการบังคับใช้กฎหมาย</th>
-            <th>ปีที่ยุติ</th>
+            <th class="cell-date">ปีที่ยุติ</th>
             <th>ปีงบประมาณที่เริ่มตรวจ</th>
             <th>โครงการที่เข้าตรวจสอบ</th>
             <th>ดูรายละเอียด</th>
@@ -1871,7 +1873,7 @@ function renderTable(){
       <td>${statusDot(r.w?'yes':'no', r.w?'เชื่อมท่อ':'ไม่เชื่อมท่อ', {yes:'#1AA36A', no:'#E0452F'})}</td>
       <td>${statusDot(bucket, COMPLY_LABEL[bucket], COMPLY_COLORS)}</td>
       <td>${statusDot(eb, eb, ACTIVE_ENFORCE_COLORS)}</td>
-      <td>${(r.ey!=null && r.ey!=='') ? escapeHtml(String(r.ey)) : '-'}</td>
+      <td class="cell-date">${(r.ey!=null && r.ey!=='') ? escapeHtml(String(r.ey)) : '-'}</td>
       <td>${r.y!=null ? r.y : '-'}</td>
       <td>${escapeHtml(r.j||'-')}</td>
       <td><button class="eye-btn" type="button" data-idx="${start+i}" title="ดูรายละเอียด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></td>
@@ -1942,7 +1944,7 @@ function openKpiTableModal(kind, label, rowsOverride){
       <td>${statusDot(r.w?'yes':'no', r.w?'เชื่อมท่อ':'ไม่เชื่อมท่อ', {yes:'#1AA36A', no:'#E0452F'})}</td>
       <td>${statusDot(bucket, COMPLY_LABEL[bucket], COMPLY_COLORS)}</td>
       <td>${statusDot(eb, eb, ACTIVE_ENFORCE_COLORS)}</td>
-      <td>${(r.ey!=null && r.ey!=='') ? escapeHtml(String(r.ey)) : '-'}</td>
+      <td class="cell-date">${(r.ey!=null && r.ey!=='') ? escapeHtml(String(r.ey)) : '-'}</td>
       <td>${r.y!=null ? r.y : '-'}</td>
       <td>${escapeHtml(r.j||'-')}</td>
       <td><button class="eye-btn kpi-row-eye" type="button" data-kpirow-idx="${i}" data-kpirow-kind="${kind}" title="ดูรายละเอียด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg></button></td>
@@ -2817,7 +2819,7 @@ function renderPrintTableFull(){
       <td>${prDot(r.w?'#1AA36A':'#E0452F', r.w?'เชื่อมท่อ':'ไม่เชื่อมท่อ')}</td>
       <td>${prDot(COMPLY_COLORS[bucket], COMPLY_LABEL[bucket])}</td>
       <td>${prDot(ACTIVE_ENFORCE_COLORS[eb]||'#94A0B4', eb)}</td>
-      <td>${(r.ey!=null && r.ey!=='') ? escapeHtml(String(r.ey)) : '-'}</td>
+      <td class="cell-date">${(r.ey!=null && r.ey!=='') ? escapeHtml(String(r.ey)) : '-'}</td>
       <td>${r.y!=null ? r.y : '-'}</td>
       <td>${escapeHtml(r.j||'-')}</td>
     </tr>`;
