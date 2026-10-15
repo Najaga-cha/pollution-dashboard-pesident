@@ -102,15 +102,15 @@ header.topbar{
 
 /* ---- Sidebar ---- */
 .sidebar{
-  width:216px; flex-shrink:0; background:var(--card); min-height:calc(100vh - 73px);
+  width:176px; flex-shrink:0; background:var(--card); min-height:calc(100vh - 73px);
   border-right:1px solid var(--line); position:sticky; top:0;
-  display:flex; flex-direction:column; padding:18px 12px;
+  display:flex; flex-direction:column; padding:18px 8px;
 }
 .side-nav{display:flex; flex-direction:column; gap:3px;}
 .side-nav button{
-  display:flex; align-items:center; gap:11px; width:100%; text-align:left;
-  background:none; border:none; border-radius:10px; padding:11px 13px;
-  font-size:13.5px; font-weight:500; color:var(--ink-soft); cursor:pointer;
+  display:flex; align-items:center; gap:9px; width:100%; text-align:left;
+  background:none; border:none; border-radius:10px; padding:10px 10px;
+  font-size:13px; font-weight:500; color:var(--ink-soft); cursor:pointer;
   transition:all .15s ease;
 }
 .side-nav button svg{width:18px; height:18px; flex-shrink:0;}
@@ -120,7 +120,7 @@ header.topbar{
   margin-top:auto; padding-top:26px; display:flex; flex-direction:column; align-items:center;
   color:var(--ink-faint);
 }
-.sidebar-illustration svg{width:118px; height:auto;}
+.sidebar-illustration svg{width:96px; height:auto;}
 
 /* ---- Mobile bottom nav (shown when the sidebar is hidden, <=980px) ---- */
 .mobile-nav{
@@ -141,7 +141,7 @@ header.topbar{
 .mobile-nav button:active{background:var(--gray-soft);}
 
 /* ---- Main ---- */
-main.content{flex:1; min-width:0; padding:20px 24px 60px;}
+main.content{flex:1; min-width:0; padding:20px 20px 60px;}
 
 /* ================= KPI cards ================= */
 .kpi-row{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:18px;}
@@ -300,7 +300,7 @@ input.field-input::placeholder{color:var(--ink-faint);}
    (วัดจากความกว้างของเนื้อหาจริง ไม่รวม sidebar จึงไม่ขึ้นกับขนาดหน้าจอ) */
 .insight-wrap{container-type:inline-size; container-name:insight;}
 @container insight (min-width:1100px){
-  .insight-row{grid-template-columns:minmax(0,.85fr) minmax(0,3.1fr) minmax(0,1fr) !important;}
+  .insight-row{grid-template-columns:minmax(0,1.2fr) minmax(0,3fr) minmax(0,1fr) !important;}
   .insight-row .top5-panel{grid-column:auto !important;}
   .insight-row .donut-sub{padding:0 12px;}
   .insight-row .donut-legend .row{flex-wrap:wrap; row-gap:2px;}
