@@ -296,6 +296,11 @@ input.field-input::placeholder{color:var(--ink-faint);}
 
 /* ================= Insight row: map + donuts + top5 ================= */
 .insight-row .top5-panel{grid-column:1 / -1;}
+/* จอกว้าง: วาง Top 5 ต่อท้ายกราฟสถานะการบังคับใช้กฎหมาย (เหมือนแบบเดิม) */
+@media (min-width:1401px){
+  .insight-row{grid-template-columns:minmax(0,1fr) minmax(0,2.4fr) minmax(0,1fr) !important;}
+  .insight-row .top5-panel{grid-column:auto !important;}
+}
 .insight-row{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,2.4fr); gap:16px; margin-bottom:18px; align-items:stretch;}
 .panel{
   background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
@@ -1110,7 +1115,7 @@ button:focus-visible, a:focus-visible{ outline:2px solid var(--blue); outline-of
             </div>
           </div>
           <div class="field-group">
-            <span class="field-label">ประเภทแหล่ง</span>
+            <span class="field-label">ประเภทแหล่งกำเนิดมลพิษ</span>
             <div class="ms-select" id="fType"></div>
           </div>
           <div class="field-group size-field">
@@ -1387,31 +1392,30 @@ const EMBEDDED_DATA = {"cols":["n","t","c","a","o","s","d","p","w","y","j","st",
 (function(){
 
 const SIZE_LABEL = { 'ก':'sz-k', 'ข':'sz-kh', 'ค':'sz-kk', 'ง':'sz-ng' };
-// สถานะการบังคับใช้กฎหมาย — 8 สถานะตามที่กำหนด (+ "อื่นๆ" แสดงเฉพาะเมื่อมีข้อมูลที่จับคู่ไม่ได้)
+// สถานะการบังคับใช้กฎหมาย — 7 สถานะตามที่กำหนด (+ "อื่นๆ" แสดงเฉพาะเมื่อมีข้อมูลที่จับคู่ไม่ได้)
 const ENFORCE_ORDER = [
-  'ยุติเรื่อง/ไม่ออกคำสั่ง',
+  'ยุติเรื่อง/มีหนังสือแจ้งหน่วยงานที่กำกับ',
   'ยุติคำสั่งทางปกครอง',
   'ยุติคำสั่งปรับทางปกครอง',
   'ติดคำสั่งปรับปรุงแก้ไขระบบบำบัดน้ำเสีย',
   'ติดคำสั่งทางปกครอง',
   'ติดคำสั่งปรับทางปกครอง',
-  'มีหนังสือแจ้งหน่วยงานที่กำกับ',
   'ยังไม่ยุติ',
 ];
 const ENFORCE_OTHER = 'อื่นๆ';
+const ENFORCE_MERGED = 'ยุติเรื่อง/มีหนังสือแจ้งหน่วยงานที่กำกับ';
 const ENFORCE_COLORS = {
-  'ยุติเรื่อง/ไม่ออกคำสั่ง':'#1AA36A',
+  'ยุติเรื่อง/มีหนังสือแจ้งหน่วยงานที่กำกับ':'#1AA36A',
   'ยุติคำสั่งทางปกครอง':'#2B63E0',
   'ยุติคำสั่งปรับทางปกครอง':'#7C5CE0',
   'ติดคำสั่งปรับปรุงแก้ไขระบบบำบัดน้ำเสีย':'#E6A417',
   'ติดคำสั่งทางปกครอง':'#F97316',
   'ติดคำสั่งปรับทางปกครอง':'#E0452F',
-  'มีหนังสือแจ้งหน่วยงานที่กำกับ':'#0EA5E9',
   'ยังไม่ยุติ':'#14B8A6',
   'อื่นๆ':'#94A0B4',
 };
-// สถานะการปฏิบัติตามกฎหมาย — 5 สถานะตามที่กำหนด
-const COMPLY_ORDER = ['ok','bad','nosample','nodischarge','pending'];
+// สถานะการปฏิบัติตามกฎหมาย — 4 สถานะที่แสดง
+const COMPLY_ORDER = ['ok','bad','nosample','pending']; // ตัด 'nodischarge' (ไม่เก็บเนื่องจากไม่ระบาย) ออกจากตัวกรองและกราฟ
 const COMPLY_COLORS = { ok:'#1AA36A', bad:'#E0452F', nosample:'#E6A417', nodischarge:'#94A0B4', pending:'#2B63E0' };
 const COMPLY_LABEL = {
   ok:'ปฏิบัติตามกฎหมาย',
@@ -1420,7 +1424,7 @@ const COMPLY_LABEL = {
   nodischarge:'ไม่เก็บเนื่องจากไม่ระบาย',
   pending:'รอผลวิเคราะห์ตัวอย่างน้ำทิ้ง',
 };
-function emptyComplyBuckets(){ const o = {}; COMPLY_ORDER.forEach(k=>o[k]=0); return o; }
+function emptyComplyBuckets(){ const o = {}; Object.keys(COMPLY_LABEL).forEach(k=>o[k]=0); return o; }
 
 // When true the enforcement donut is hidden (first-tab auto / กทม.+สคพ. sheets).
 let HIDE_ENFORCE_CHART = false;
@@ -1499,17 +1503,19 @@ function complyBucket(row){
 function enforceBucket(row){
   const e = normText(row.e);
   if (!e) return ENFORCE_OTHER;
+  // ค่าเดิม 'ยุติเรื่อง/ไม่ออกคำสั่ง' และ 'มีหนังสือแจ้งหน่วยงานที่กำกับ' รวมเป็นสถานะเดียว
+  if (e === normText('ยุติเรื่อง/ไม่ออกคำสั่ง') || e === normText('มีหนังสือแจ้งหน่วยงานที่กำกับ')) return ENFORCE_MERGED;
   const exact = ENFORCE_ORDER.find(k=> normText(k) === e);
   if (exact) return exact;
   // keyword fallback (most specific first)
   if (e.includes('ยังไม่ยุติ')) return 'ยังไม่ยุติ';
-  if (e.includes('ยุติเรื่อง') || e.includes('ไม่ออกคำสั่ง')) return 'ยุติเรื่อง/ไม่ออกคำสั่ง';
+  if (e.includes('ยุติเรื่อง') || e.includes('ไม่ออกคำสั่ง')) return ENFORCE_MERGED;
   if (e.includes('ปรับปรุง') && e.includes('คำสั่ง')) return 'ติดคำสั่งปรับปรุงแก้ไขระบบบำบัดน้ำเสีย';
   if (e.includes('ยุติ') && e.includes('คำสั่งปรับ')) return 'ยุติคำสั่งปรับทางปกครอง';
   if (e.includes('ยุติ') && e.includes('คำสั่ง')) return 'ยุติคำสั่งทางปกครอง';
   if (e.includes('ติดคำสั่งปรับ')) return 'ติดคำสั่งปรับทางปกครอง';
   if (e.includes('ติดคำสั่ง')) return 'ติดคำสั่งทางปกครอง';
-  if (e.includes('หนังสือแจ้ง')) return 'มีหนังสือแจ้งหน่วยงานที่กำกับ';
+  if (e.includes('หนังสือแจ้ง')) return ENFORCE_MERGED;
   return ENFORCE_OTHER;
 }
 
@@ -1898,7 +1904,7 @@ function renderDonuts(){
     ['ไม่เชื่อมท่อ', sewerNo, '#D8DEE9', 'no'],
   ].map(([lab,val,col,key])=>legendRow(lab,val,col,total,'chartSewer',key)).join('');
 
-  // compliance — 5 states
+  // compliance — 4 states shown
   const buckets = emptyComplyBuckets();
   FILTERED.forEach(r=> buckets[complyBucket(r)]++ );
   makeDonut('chartCompliance', COMPLY_ORDER.map(k=>COMPLY_LABEL[k]), COMPLY_ORDER.map(k=>buckets[k]), COMPLY_ORDER.map(k=>COMPLY_COLORS[k]),
@@ -1908,7 +1914,7 @@ function renderDonuts(){
   document.getElementById('complianceLegend').innerHTML = COMPLY_ORDER
     .map(k=>legendRow(COMPLY_LABEL[k], buckets[k], COMPLY_COLORS[k], total, 'chartCompliance', k)).join('');
 
-  // enforcement status — ACTIVE_ENFORCE_ORDER/COLORS are the fixed 8 statuses
+  // enforcement status — ACTIVE_ENFORCE_ORDER/COLORS are the fixed 7 statuses
   // (plus "อื่นๆ" only when some row doesn't match any of them).
   if (!HIDE_ENFORCE_CHART){
     const eBuckets = {}; ACTIVE_ENFORCE_ORDER.forEach(k=>eBuckets[k]=0);
