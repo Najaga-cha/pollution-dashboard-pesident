@@ -297,9 +297,16 @@ input.field-input::placeholder{color:var(--ink-faint);}
 /* ================= Insight row: map + donuts + top5 ================= */
 .insight-row .top5-panel{grid-column:1 / -1;}
 /* จอกว้าง: วาง Top 5 ต่อท้ายกราฟสถานะการบังคับใช้กฎหมาย (เหมือนแบบเดิม) */
-@media (min-width:1401px){
-  .insight-row{grid-template-columns:minmax(0,1fr) minmax(0,2.4fr) minmax(0,1fr) !important;}
+@media (min-width:1600px){
+  .insight-row{grid-template-columns:minmax(0,.85fr) minmax(0,3.1fr) minmax(0,1fr) !important;}
   .insight-row .top5-panel{grid-column:auto !important;}
+  .insight-row .donut-sub{padding:0 12px;}
+  /* ป้ายกับตัวเลขในคำอธิบายกราฟ: ถ้าที่ไม่พอให้ตัวเลขขึ้นบรรทัดใหม่ แทนการบีบข้อความทีละตัวอักษร */
+  .insight-row .donut-legend .row{flex-wrap:wrap; row-gap:2px;}
+  .insight-row .donut-legend .row .lab{flex:1 1 140px; min-width:140px;}
+  .insight-row .donut-legend .row .val{margin-left:19px;}
+  .insight-row .top5-panel{padding:20px 16px 18px;}
+  .insight-row .top5-head{flex-wrap:wrap;}
 }
 .insight-row{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,2.4fr); gap:16px; margin-bottom:18px; align-items:stretch;}
 .panel{
